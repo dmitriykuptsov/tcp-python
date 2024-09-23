@@ -295,7 +295,7 @@ TCP_OPTION_KIND_OFFSET = 0x0;
 TCP_OPTION_KIND_LENGTH = 0x1;
 
 class TCPOption():
-    def __init__(self, buffer):
+    def __init__(self, buffer = None):
         if buffer:
             self.buffer = bytearray([0] * TCP_OPTION_KIND_LENGTH)
         else:
@@ -314,7 +314,7 @@ TCP_MSS_OPTION_VALUE_LENGTH = 0x2
 TCP_MSS_OPTION_VALUE_OFFSET = 0x2
 
 class TCPMSSOption(TCPOption):
-    def __init__(self, buffer):
+    def __init__(self, buffer = None):
         if buffer:
             self.buffer = bytearray([0] * (TCP_OPTION_KIND_LENGTH + \
                                             TCP_MSS_OPTION_LENGTH_LENGTH + \
