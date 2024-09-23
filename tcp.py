@@ -85,3 +85,34 @@ class TransmissionControlBlock():
         else:
             return self.irs
 
+class TCPStates():
+    def __init__(self):
+        self.LISTEN = 0
+        self.SYN_SENT = 1
+        self.SYN_RECEIVED = 2
+        self.ESTABLISHED = 3
+        self.FIN_WAIT_1 = 4
+        self.FIN_WAIT_2 = 5
+        self.CLOSE_WAIT = 6
+        self.CLOSING = 7
+        self.LAST_ACK = 8
+        self.TIME_WAIT = 9
+        self.CLOSED = 10
+
+class TCP():
+    def __init__(self):
+        self.tcb = TransmissionControlBlock()
+        self.states = TCPStates()
+    def open(self, src, dst, src_port, dst_port, listen = False):
+        pass
+    def send(self, data):
+        pass
+    def receive(self):
+        pass
+    def close(self):
+        pass
+    def abort(self):
+        pass
+    def status(self):
+        pass
+    

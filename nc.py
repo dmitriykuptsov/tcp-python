@@ -22,4 +22,7 @@ __maintainer__ = "Dmitriy Kuptsov"
 __email__ = "dmitriy.kuptsov@strangebit.io"
 __status__ = "development"
 
+from packets import *
 from tcp import *
+tcp = TCP()
+tcp.open("localhost", "localhost", 45000, 22, listen=False)
