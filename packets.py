@@ -132,7 +132,7 @@ class TCPPacket(Packet):
     def __init__(self, buffer = None):
         if buffer is None:
             self.buffer = bytearray([0] * (SOURCE_PORT_LENGTH + \
-                                           DESTINATION_PORT_LENGTH + \
+                                            DESTINATION_PORT_LENGTH + \
                                                 SEQUENCE_NUMBER_LENGTH + \
                                                     ACKNOWLEDGEMENT_NUMBER_LENGTH + \
                                                         DATA_OFFSET_LENGTH + \
@@ -142,4 +142,160 @@ class TCPPacket(Packet):
                                                                         URGENT_POINTER_LENGTH))
         else:
             self.buffer = bytearray(buffer)
-    
+    def get_source_port(self):
+        port = 0
+        port = (self.buffer[SOURCE_PORT_OFFSET] << 8)
+        port |= self.buffer[SOURCE_PORT_OFFSET + 1]
+        return port
+    def set_source_port(self, port):
+        self.buffer[SOURCE_PORT_OFFSET] = (port << 8) & 0xFF
+        self.buffer[SOURCE_PORT_OFFSET + 1] = port & 0xFF
+    def get_destination_port(self):
+        port = 0
+        port = (self.buffer[SOURCE_PORT_OFFSET] << 8)
+        port |= self.buffer[SOURCE_PORT_OFFSET + 1]
+        return port
+    def set_destination_port(self, port):
+        self.buffer[DESTINATION_PORT_OFFSET] = (port << 8) & 0xFF
+        self.buffer[DESTINATION_PORT_OFFSET + 1] = port & 0xFF
+    def get_sequence_number(self):
+        seq = 0
+        seq = (self.buffer[SOURCE_PORT_OFFSET] << 24)
+        seq |= (self.buffer[SOURCE_PORT_OFFSET + 1] << 16)
+        seq |= (self.buffer[SOURCE_PORT_OFFSET + 2] << 8)
+        seq |= (self.buffer[SOURCE_PORT_OFFSET + 3])
+        return seq
+    def set_sequence_number(self, seq):
+        self.buffer[SEQUENCE_NUMBER_OFFSET] = (seq << 24) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 1] = (seq << 16) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 2] = (seq << 8) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 3] = seq & 0xFF
+    def get_data_offset(self):
+        return (self.buffer[DATA_OFFSET_OFFSET] & 0xF) >> 4
+    def set_data_offset(self, offset):
+        self.buffer[DATA_OFFSET_OFFSET] = (offset << 4) & 0xFF
+    def get_cwr_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x80 >> 7)
+    def get_ecu_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x40 >> 6)
+    def get_urg_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x20 >> 5)
+    def get_ack_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x10 >> 4)
+    def get_psh_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x8 >> 3)
+    def get_rst_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x4 >> 2)
+    def get_syn_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x2 >> 1)
+    def get_fin_bit(self):
+        return (self.buffer[FLAGS_OFFSET] & 0x1 >> 0)
+    def set_cwr_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 7))
+    def set_ecu_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 6))
+    def set_urg_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 5))
+    def set_ack_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 4))
+    def set_psh_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 3))
+    def set_rst_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 2))
+    def set_syn_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 1))
+    def set_fin_bit(self, flag):
+        flag = (flag & 0x1)
+        self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 0))
+    def get_window(self):
+        window = 0
+        window = (self.buffer[WINDOW_OFFSET] << 8)
+        window |= self.buffer[WINDOW_OFFSET + 1]
+        return window
+    def set_window(self, window):
+        self.buffer[WINDOW_OFFSET] = (window << 8) & 0xFF
+        self.buffer[WINDOW_OFFSET + 1] = window & 0xFF
+    def get_checksum(self):
+        seq = 0
+        seq = (self.buffer[CHECKSUM_OFFSET] << 24)
+        seq |= (self.buffer[CHECKSUM_OFFSET + 1] << 16)
+        seq |= (self.buffer[CHECKSUM_OFFSET + 2] << 8)
+        seq |= (self.buffer[CHECKSUM_OFFSET + 3])
+        return seq
+    def set_sequence_number(self, checksum):
+        self.buffer[CHECKSUM_OFFSET] = (checksum << 24) & 0xFF
+        self.buffer[CHECKSUM_OFFSET + 1] = (checksum << 16) & 0xFF
+        self.buffer[CHECKSUM_OFFSET + 2] = (checksum << 8) & 0xFF
+        self.buffer[CHECKSUM_OFFSET + 3] = checksum & 0xFF
+    def get_urgent_pointer(self):
+        pointer = 0
+        pointer = (self.buffer[URGENT_POINTER_OFFSET] << 24)
+        pointer |= (self.buffer[URGENT_POINTER_OFFSET + 1] << 16)
+        pointer |= (self.buffer[URGENT_POINTER_OFFSET + 2] << 8)
+        pointer |= (self.buffer[URGENT_POINTER_OFFSET + 3])
+        return pointer
+    def set_urgent_pointer(self, pointer):
+        self.buffer[URGENT_POINTER_OFFSET] = (pointer << 24) & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET + 1] = (pointer << 16) & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET + 2] = (pointer << 8) & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET + 3] = pointer & 0xFF
+    def get_options(self):
+        offset = self.get_data_offset() * 4
+    def set_data(self, data):
+        offset = self.get_data_offset() * 4
+        self.buffer[offset:offset + len(data)] = data
+    def get_data(self, data):
+        offset = self.get_data_offset() * 4
+        return self.buffer[offset:offset + len(data)]
+
+TCP_OPTION_END_OF_OPTION_KIND = 0x0
+TCP_NOOP_OPTION_KIND = 0x1
+TCP_MSS_OPTION_KIND = 0x2
+
+TCP_OPTION_KIND_OFFSET = 0x0;
+TCP_OPTION_KIND_LENGTH = 0x1;
+
+class TCPOption():
+    def __init__(self, buffer):
+        if buffer:
+            self.buffer = bytearray([0] * TCP_OPTION_KIND_LENGTH)
+        else:
+            self.buffer = buffer;
+    def get_kind(self):
+        return self.buffer[TCP_OPTION_KIND_OFFSET]
+    def set_kind(self, kind):
+        self.buffer[TCP_OPTION_KIND_OFFSET] = kind
+    def get_buffer(self):
+        return self.buffer;
+
+TCP_MSS_OPTION_LENGTH = 0x1
+TCP_MSS_OPTION_LENGTH_OFFSET = 0x1
+TCP_MSS_OPTION_LENGTH_LENGTH = 0x1
+TCP_MSS_OPTION_VALUE_LENGTH = 0x2
+TCP_MSS_OPTION_VALUE_OFFSET = 0x2
+
+class TCPMSSOption(TCPOption):
+    def __init__(self, buffer):
+        if buffer:
+            self.buffer = bytearray([0] * (TCP_OPTION_KIND_LENGTH + \
+                                            TCP_MSS_OPTION_LENGTH_LENGTH + \
+                                                TCP_MSS_OPTION_VALUE_LENGTH))
+        else:
+            self.buffer = buffer;
+    def get_length(self):
+        return 0x4
+    def get_mss(self):
+        mss = 0
+        mss = (self.buffer[TCP_MSS_OPTION_VALUE_OFFSET] << 8) & 0xFF
+        mss |= (self.buffer[TCP_MSS_OPTION_VALUE_OFFSET + 1]) & 0xFF
+        return mss
+    def set_mss(self, mss):
+        self.buffer[TCP_MSS_OPTION_VALUE_OFFSET] = (mss >> 8) & 0xFF
+        self.buffer[TCP_MSS_OPTION_VALUE_OFFSET + 1] = (mss & 0xFF)
