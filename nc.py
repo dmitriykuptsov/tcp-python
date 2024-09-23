@@ -24,5 +24,7 @@ __status__ = "development"
 
 from packets import *
 from tcp import *
+from utils import TCPUtils
 tcp = TCP()
 tcp.open("localhost", "localhost", 45000, 22, listen=False)
+print(TCPUtils.generate_isn(0, "localhost", "localhost", 22, 45000))

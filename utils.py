@@ -65,3 +65,21 @@ class Misc():
         addr |= (int(parts[2]) & 0xFF << 8)
         addr |= (int(parts[3]) & 0xFF)
         return addr
+
+import os
+import hashlib
+
+class TCPUtils():
+    @staticmethod
+    def generate_isn(clock, localip, remoteip, localport, remoteport):
+        secret = os.urandom(16)
+        sha1 = hashlib.sha1()
+        sha1.update(secret)
+        sha1.update(localip.encode('ascii'))
+        sha1.update(str(localport).encode('ascii'))
+        sha1.update(remoteip.encode('ascii'))
+        sha1.update(remoteip.encode('ascii'))
+        sha1.update(str(remoteport).encode('ascii'))
+        isn = sha1.digest()
+        isn = int.from_bytes(isn, byteorder="big")
+        return (clock + isn) % (2**32 -1)
