@@ -247,7 +247,39 @@ class TCPPacket(Packet):
         self.buffer[URGENT_POINTER_OFFSET + 2] = (pointer << 8) & 0xFF
         self.buffer[URGENT_POINTER_OFFSET + 3] = pointer & 0xFF
     def get_options(self):
-        offset = self.get_data_offset() * 4
+        if self.get_data_offset() == 5:
+            return []
+        has_more_options = True
+        offset = 5 * 4
+        options = []
+        while has_more_options:
+            if self.buffer[offset] == TCP_OPTION_END_OF_OPTION_KIND:
+                has_more_options = False
+                option = TCPOption()
+                option.set_kind(TCP_OPTION_END_OF_OPTION_KIND)
+                options.append(option)
+            elif self.buffer[offset] == TCP_NOOP_OPTION_KIND:
+                option = TCPOption()
+                option.set_kind(TCP_NOOP_OPTION_KIND)
+                options.append(option)
+                offset += 1
+            elif self.buffer[offset] == TCP_MSS_OPTION_KIND:
+                buf = self.buffer[offset:offset+4]
+                option = TCPMSSOption(buf)
+                options.append(option)
+                offset += 4
+    def set_options(self, options):
+        total_length = 0
+        for o in options:
+            total_length += o.get_buffer()
+        if total_length % 4 != 0:
+            padding_length = (total_length % 4)
+            total_length += padding_length
+            padding = bytearray([0] * padding_length)
+        for o in options:
+            self.buffer += o.get_buffer()
+        self.buffer += padding
+
     def set_data(self, data):
         offset = self.get_data_offset() * 4
         self.buffer[offset:offset + len(data)] = data
