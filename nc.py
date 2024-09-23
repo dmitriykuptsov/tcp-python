@@ -14,4 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from packets import TCPPacket, IPv4Packet
+__author__ = "Dmitriy Kuptsov"
+__copyright__ = "Copyright 2024, strangebit"
+__license__ = "GPL"
+__version__ = "0.0.1b"
+__maintainer__ = "Dmitriy Kuptsov"
+__email__ = "dmitriy.kuptsov@strangebit.io"
+__status__ = "development"
+
+from tcp import *
