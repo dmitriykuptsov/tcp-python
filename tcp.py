@@ -183,9 +183,67 @@ class TCP():
     def __recv__(self):
         while True:
             buf = bytearray(self.socket.recv(MTU));
-            if self.state == self.states.CLOSED:
+            ipv4packet = IPv4Packet(buf)
+            print(list(ipv4packet.get_destination_address()))
+            if ipv4packet.get_destination_address() != self.src_bytes:
+                print("NOT OUR PEER")
                 continue;
-            if self.state == self.states.CLOSED:
+            tcp_packet = TCPPacket(ipv4packet.get_payload())
+            print("DPORT %s SPORT %s" % (tcp_packet.get_destination_port(), tcp_packet.get_source_port()))
+            print("DPORT %s SPORT %s" % (self.sport, self.dport))
+            if tcp_packet.get_source_port() != self.dport and tcp_packet.get_destination_port() != self.sport:
+                print("Not our connection....")
+                continue
+            print("GOT TCP PACKET....")
+            #if self.state == self.states.CLOSED:
+            #    continue;
+            print(self.states.SYN_SENT)
+            print(self.state)
+            print(self.state == self.states.SYN_SENT)
+            if self.state == self.states.SYN_SENT:
+                print("PROCESSING SYN+ACK?")
+                print(list(tcp_packet.get_buffer()))
+                print(tcp_packet.get_flags())
+                print(tcp_packet.get_syn_bit())
+                print(tcp_packet.get_ack_bit())
+                if tcp_packet.get_syn_bit() and tcp_packet.get_ack_bit():
+                    print("GOT SYN+ACK")
+                    
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    tcp_packet.set_ack_bit(1)
+
+                    print("ACK BIT IS SET ON SYN+ACK RESPONSE %s" % (tcp_packet.get_ack_bit()))
+                    
+                    tcp_packet.set_data_offset(5)                    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = bytearray(self.src_bytes + \
+                                                self.dst_bytes + \
+                                                    bytearray([0]) + \
+                                                        bytearray([packets.TCP_PROTOCOL_NUMBER]) + \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    print("TCP CHECKSUM %s " % (hex(tcp_checksum & 0xFFFF)))
+
+                    print(list(tcp_packet.get_buffer()))
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+
+                    print("MSS OPTION BUFFER")
+                    print("Sending TCP SYN packet to the sender %s" % (self.dst))
+                    print(list(ipv4packet.get_buffer()))
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+
+                    self.state = self.states.ESTABLISHED
                 continue;
 
     def __send__(self):
@@ -239,7 +297,7 @@ class TCP():
                 print(list(ipv4packet.get_buffer()))
                 self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
 
-                pass
+                self.state = self.states.SYN_SENT
             self.__noop__()
 
     def open(self, src, dst, src_port, dst_port, listen = False):
