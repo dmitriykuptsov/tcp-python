@@ -25,6 +25,10 @@ __status__ = "development"
 from packets import *
 from tcp import *
 from utils import TCPUtils
+from time import sleep
 tcp = TCP()
 tcp.open("localhost", "localhost", 45000, 22, listen=False)
 print(TCPUtils.generate_isn(0, "localhost", "localhost", 22, 45000))
+
+while True:
+    sleep(1)
