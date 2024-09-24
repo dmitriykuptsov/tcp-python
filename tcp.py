@@ -201,15 +201,15 @@ class TCP():
                 ipv4packet.set_destination_address(self.dst_bytes)
                 ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
                 ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
-                
-                ipv4packet.set_checksum(Checksum.checksum(ipv4packet.get_header()))
 
                 pseudo_header = bytearray(self.src_bytes + \
                                             self.dst_bytes + \
                                                 bytearray([0]) + \
-                                                    bytearray([packets.TCP_PROTOCOL_NUMBER]) + Misc.int_to_bytes(len(ipv4packet.get_buffer())))
+                                                    bytearray([packets.TCP_PROTOCOL_NUMBER]) + \
+                                                        Misc.int_to_bytes(len(ipv4packet.get_buffer())))
                 tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
-                tcp_packet.set_checksum(tcp_checksum)
+                print(hex(tcp_checksum & 0xFFFF))
+                tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                 ipv4packet.set_payload(tcp_packet.get_buffer())
 
 
@@ -227,7 +227,7 @@ class TCP():
         self.sport = src_port
         self.dport = dst_port
         # creates a raw socket and binds it to the source address
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, packets.TCP_PROTOCOL_NUMBER)
         self.socket.bind((src, 0))
         self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1);
         
