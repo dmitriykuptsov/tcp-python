@@ -180,21 +180,21 @@ class TCPPacket(Packet):
     def get_flags(self):
         return self.buffer[FLAGS_OFFSET]
     def get_cwr_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x80 >> 7)
+        return (self.buffer[FLAGS_OFFSET] & 0x80) >> 7
     def get_ecu_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x40 >> 6)
+        return (self.buffer[FLAGS_OFFSET] & 0x40) >> 6
     def get_urg_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x20 >> 5)
+        return (self.buffer[FLAGS_OFFSET] & 0x20) >> 5
     def get_ack_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x10 >> 4)
+        return (self.buffer[FLAGS_OFFSET] & 0x10) >> 4
     def get_psh_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x8 >> 3)
+        return (self.buffer[FLAGS_OFFSET] & 0x8) >> 3
     def get_rst_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x4 >> 2)
+        return (self.buffer[FLAGS_OFFSET] & 0x4) >> 2
     def get_syn_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x2 >> 1)
+        return (self.buffer[FLAGS_OFFSET] & 0x2) >> 1
     def get_fin_bit(self):
-        return (self.buffer[FLAGS_OFFSET] & 0x1 >> 0)
+        return self.buffer[FLAGS_OFFSET] & 0x1
     def set_cwr_bit(self, flag):
         flag = (flag & 0x1)
         self.buffer[FLAGS_OFFSET] = (self.buffer[FLAGS_OFFSET] | (flag << 7))
