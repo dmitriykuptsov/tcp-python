@@ -108,7 +108,7 @@ TCP_PROTOCOL_NUMBER = 6
 IP_DEFAULT_TTL = 128
 
 """
- 0                   1                   2                   3
+    0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |          Source Port          |       Destination Port        |
@@ -174,7 +174,7 @@ class TCPPacket(Packet):
         self.buffer[SEQUENCE_NUMBER_OFFSET + 2] = (seq >> 8) & 0xFF
         self.buffer[SEQUENCE_NUMBER_OFFSET + 3] = seq & 0xFF
     def get_data_offset(self):
-        return (self.buffer[DATA_OFFSET_OFFSET] & 0xF) >> 4
+        return (self.buffer[DATA_OFFSET_OFFSET] & 0xF0) >> 4
     def set_data_offset(self, offset):
         self.buffer[DATA_OFFSET_OFFSET] = (offset << 4) & 0xFF
     def get_cwr_bit(self):
@@ -226,22 +226,18 @@ class TCPPacket(Packet):
         self.buffer[WINDOW_OFFSET] = (window >> 8) & 0xFF
         self.buffer[WINDOW_OFFSET + 1] = window & 0xFF
     def set_checksum(self, checksum):
-        self.buffer[CHECKSUM_OFFSET] = (checksum >> 24) & 0xFF
-        self.buffer[CHECKSUM_OFFSET + 1] = (checksum >> 16) & 0xFF
-        self.buffer[CHECKSUM_OFFSET + 2] = (checksum >> 8) & 0xFF
-        self.buffer[CHECKSUM_OFFSET + 3] = (checksum & 0xFF)
+        self.buffer[CHECKSUM_OFFSET ] = (checksum >> 8) & 0xFF
+        self.buffer[CHECKSUM_OFFSET + 1] = (checksum & 0xFF)
     def get_checksum(self):
         checksum = 0
-        checksum = (self.buffer[CHECKSUM_OFFSET] << 24)
-        checksum |= (self.buffer[CHECKSUM_OFFSET + 1] << 16)
-        checksum |= (self.buffer[CHECKSUM_OFFSET + 2] << 8)
-        checksum |= (self.buffer[CHECKSUM_OFFSET + 3])
+        checksum |= (self.buffer[CHECKSUM_OFFSET] << 8)
+        checksum |= (self.buffer[CHECKSUM_OFFSET + 1])
         return checksum
-    def set_sequence_number(self, checksum):
-        self.buffer[SEQUENCE_NUMBER_OFFSET] = (checksum >> 24) & 0xFF
-        self.buffer[SEQUENCE_NUMBER_OFFSET + 1] = (checksum >> 16) & 0xFF
-        self.buffer[SEQUENCE_NUMBER_OFFSET + 2] = (checksum >> 8) & 0xFF
-        self.buffer[SEQUENCE_NUMBER_OFFSET + 3] = checksum & 0xFF
+    def set_sequence_number(self, sequence):
+        self.buffer[SEQUENCE_NUMBER_OFFSET] = (sequence >> 24) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 1] = (sequence >> 16) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 2] = (sequence >> 8) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 3] = sequence & 0xFF
     def get_sequence_number(self):
         sequence = 0
         sequence = (self.buffer[SEQUENCE_NUMBER_OFFSET] << 24)
@@ -251,16 +247,12 @@ class TCPPacket(Packet):
         return sequence
     def get_urgent_pointer(self):
         pointer = 0
-        pointer = (self.buffer[URGENT_POINTER_OFFSET] << 24)
-        pointer |= (self.buffer[URGENT_POINTER_OFFSET + 1] << 16)
-        pointer |= (self.buffer[URGENT_POINTER_OFFSET + 2] << 8)
-        pointer |= (self.buffer[URGENT_POINTER_OFFSET + 3])
+        pointer |= (self.buffer[URGENT_POINTER_OFFSET] << 8)
+        pointer |= (self.buffer[URGENT_POINTER_OFFSET + 1])
         return pointer
     def set_urgent_pointer(self, pointer):
-        self.buffer[URGENT_POINTER_OFFSET] = (pointer >> 24) & 0xFF
-        self.buffer[URGENT_POINTER_OFFSET + 1] = (pointer >> 16) & 0xFF
-        self.buffer[URGENT_POINTER_OFFSET + 2] = (pointer >> 8) & 0xFF
-        self.buffer[URGENT_POINTER_OFFSET + 3] = pointer & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET] = (pointer >> 8) & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET + 1] = pointer & 0xFF
     def get_options(self):
         if self.get_data_offset() == 5:
             return []
@@ -286,14 +278,19 @@ class TCPPacket(Packet):
     def set_options(self, options):
         total_length = 0
         for o in options:
-            total_length += o.get_buffer()
+            total_length += len(o.get_buffer())
+        
+        padding = bytearray([])
         if total_length % 4 != 0:
             padding_length = (total_length % 4)
             total_length += padding_length
             padding = bytearray([0] * padding_length)
         for o in options:
+            print(o.get_buffer())
             self.buffer += o.get_buffer()
+
         self.buffer += padding
+        self.set_data_offset(int(self.get_data_offset() + total_length / 4))
 
     def set_data(self, data):
         offset = self.get_data_offset() * 4
@@ -304,6 +301,7 @@ class TCPPacket(Packet):
     def get_buffer(self):
         return self.buffer
 
+
 TCP_OPTION_END_OF_OPTION_KIND = 0x0
 TCP_NOOP_OPTION_KIND = 0x1
 TCP_MSS_OPTION_KIND = 0x2
@@ -313,7 +311,7 @@ TCP_OPTION_KIND_LENGTH = 0x1;
 
 class TCPOption():
     def __init__(self, buffer = None):
-        if buffer:
+        if not buffer:
             self.buffer = bytearray([0] * TCP_OPTION_KIND_LENGTH)
         else:
             self.buffer = buffer;
@@ -332,10 +330,11 @@ TCP_MSS_OPTION_VALUE_OFFSET = 0x2
 
 class TCPMSSOption(TCPOption):
     def __init__(self, buffer = None):
-        if buffer:
+        if not buffer:
             self.buffer = bytearray([0] * (TCP_OPTION_KIND_LENGTH + \
                                             TCP_MSS_OPTION_LENGTH_LENGTH + \
                                                 TCP_MSS_OPTION_VALUE_LENGTH))
+            self.buffer[TCP_MSS_OPTION_LENGTH_OFFSET] = 0x4
         else:
             self.buffer = buffer;
     def get_length(self):
