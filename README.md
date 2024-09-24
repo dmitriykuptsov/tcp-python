@@ -17,3 +17,7 @@ Netcat in client mode
 $ python nc.py host port
 ```
 
+Prevent Linux kernel from replying to custom TCP handshake
+```
+$ sudo iptables -i lo -t raw -A PREROUTING -p tcp --dport 45000 -j DROP
+```
