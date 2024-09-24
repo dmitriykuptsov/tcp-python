@@ -151,7 +151,7 @@ class TCPPacket(Packet):
         port |= self.buffer[SOURCE_PORT_OFFSET + 1]
         return port
     def set_source_port(self, port):
-        self.buffer[SOURCE_PORT_OFFSET] = (port << 8) & 0xFF
+        self.buffer[SOURCE_PORT_OFFSET] = (port >> 8) & 0xFF
         self.buffer[SOURCE_PORT_OFFSET + 1] = port & 0xFF
     def get_destination_port(self):
         port = 0
@@ -159,7 +159,7 @@ class TCPPacket(Packet):
         port |= self.buffer[SOURCE_PORT_OFFSET + 1]
         return port
     def set_destination_port(self, port):
-        self.buffer[DESTINATION_PORT_OFFSET] = (port << 8) & 0xFF
+        self.buffer[DESTINATION_PORT_OFFSET] = (port >> 8) & 0xFF
         self.buffer[DESTINATION_PORT_OFFSET + 1] = port & 0xFF
     def get_sequence_number(self):
         seq = 0
@@ -169,9 +169,9 @@ class TCPPacket(Packet):
         seq |= (self.buffer[SOURCE_PORT_OFFSET + 3])
         return seq
     def set_sequence_number(self, seq):
-        self.buffer[SEQUENCE_NUMBER_OFFSET] = (seq << 24) & 0xFF
-        self.buffer[SEQUENCE_NUMBER_OFFSET + 1] = (seq << 16) & 0xFF
-        self.buffer[SEQUENCE_NUMBER_OFFSET + 2] = (seq << 8) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET] = (seq >> 24) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 1] = (seq >> 16) & 0xFF
+        self.buffer[SEQUENCE_NUMBER_OFFSET + 2] = (seq >> 8) & 0xFF
         self.buffer[SEQUENCE_NUMBER_OFFSET + 3] = seq & 0xFF
     def get_data_offset(self):
         return (self.buffer[DATA_OFFSET_OFFSET] & 0xF) >> 4
@@ -223,7 +223,7 @@ class TCPPacket(Packet):
         window |= self.buffer[WINDOW_OFFSET + 1]
         return window
     def set_window(self, window):
-        self.buffer[WINDOW_OFFSET] = (window << 8) & 0xFF
+        self.buffer[WINDOW_OFFSET] = (window >> 8) & 0xFF
         self.buffer[WINDOW_OFFSET + 1] = window & 0xFF
     def set_checksum(self, checksum):
         self.buffer[CHECKSUM_OFFSET] = (checksum >> 24) & 0xFF
@@ -238,9 +238,9 @@ class TCPPacket(Packet):
         checksum |= (self.buffer[CHECKSUM_OFFSET + 3])
         return checksum
     def set_sequence_number(self, checksum):
-        self.buffer[CHECKSUM_OFFSET] = (checksum << 24) & 0xFF
-        self.buffer[CHECKSUM_OFFSET + 1] = (checksum << 16) & 0xFF
-        self.buffer[CHECKSUM_OFFSET + 2] = (checksum << 8) & 0xFF
+        self.buffer[CHECKSUM_OFFSET] = (checksum >> 24) & 0xFF
+        self.buffer[CHECKSUM_OFFSET + 1] = (checksum >> 16) & 0xFF
+        self.buffer[CHECKSUM_OFFSET + 2] = (checksum >> 8) & 0xFF
         self.buffer[CHECKSUM_OFFSET + 3] = checksum & 0xFF
     def get_urgent_pointer(self):
         pointer = 0
@@ -250,9 +250,9 @@ class TCPPacket(Packet):
         pointer |= (self.buffer[URGENT_POINTER_OFFSET + 3])
         return pointer
     def set_urgent_pointer(self, pointer):
-        self.buffer[URGENT_POINTER_OFFSET] = (pointer << 24) & 0xFF
-        self.buffer[URGENT_POINTER_OFFSET + 1] = (pointer << 16) & 0xFF
-        self.buffer[URGENT_POINTER_OFFSET + 2] = (pointer << 8) & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET] = (pointer >> 24) & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET + 1] = (pointer >> 16) & 0xFF
+        self.buffer[URGENT_POINTER_OFFSET + 2] = (pointer >> 8) & 0xFF
         self.buffer[URGENT_POINTER_OFFSET + 3] = pointer & 0xFF
     def get_options(self):
         if self.get_data_offset() == 5:
