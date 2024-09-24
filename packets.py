@@ -155,8 +155,8 @@ class TCPPacket(Packet):
         self.buffer[SOURCE_PORT_OFFSET + 1] = port & 0xFF
     def get_destination_port(self):
         port = 0
-        port = (self.buffer[SOURCE_PORT_OFFSET] << 8)
-        port |= self.buffer[SOURCE_PORT_OFFSET + 1]
+        port = (self.buffer[DESTINATION_PORT_OFFSET] << 8)
+        port |= self.buffer[DESTINATION_PORT_OFFSET + 1]
         return port
     def set_destination_port(self, port):
         self.buffer[DESTINATION_PORT_OFFSET] = (port >> 8) & 0xFF
@@ -177,6 +177,8 @@ class TCPPacket(Packet):
         return (self.buffer[DATA_OFFSET_OFFSET] & 0xF0) >> 4
     def set_data_offset(self, offset):
         self.buffer[DATA_OFFSET_OFFSET] = (offset << 4) & 0xFF
+    def get_flags(self):
+        return self.buffer[FLAGS_OFFSET]
     def get_cwr_bit(self):
         return (self.buffer[FLAGS_OFFSET] & 0x80 >> 7)
     def get_ecu_bit(self):
