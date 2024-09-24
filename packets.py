@@ -17,6 +17,7 @@
 class Packet():
     pass
 
+
 IPV4_PACKET_LENGTH = 0x14;
 IPV4_VERSION_OFFSET = 0x0
 IPV4_IHL_OFFSET = 0x0
@@ -228,7 +229,7 @@ class TCPPacket(Packet):
         self.buffer[WINDOW_OFFSET] = (window >> 8) & 0xFF
         self.buffer[WINDOW_OFFSET + 1] = window & 0xFF
     def set_checksum(self, checksum):
-        self.buffer[CHECKSUM_OFFSET ] = (checksum >> 8) & 0xFF
+        self.buffer[CHECKSUM_OFFSET] = (checksum >> 8) & 0xFF
         self.buffer[CHECKSUM_OFFSET + 1] = (checksum & 0xFF)
     def get_checksum(self):
         checksum = 0
@@ -246,6 +247,18 @@ class TCPPacket(Packet):
         sequence |= (self.buffer[SEQUENCE_NUMBER_OFFSET + 1] << 16)
         sequence |= (self.buffer[SEQUENCE_NUMBER_OFFSET + 2] << 8)
         sequence |= (self.buffer[SEQUENCE_NUMBER_OFFSET + 3])
+        return sequence
+    def set_acknowledgment_number(self, sequence):
+        self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET] = (sequence >> 24) & 0xFF
+        self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET + 1] = (sequence >> 16) & 0xFF
+        self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET + 2] = (sequence >> 8) & 0xFF
+        self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET + 3] = sequence & 0xFF
+    def get_acknowledgment_number(self):
+        sequence = 0
+        sequence = (self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET] << 24)
+        sequence |= (self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET + 1] << 16)
+        sequence |= (self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET + 2] << 8)
+        sequence |= (self.buffer[ACKNOWLEDGEMENT_NUMBER_OFFSET + 3])
         return sequence
     def get_urgent_pointer(self):
         pointer = 0
