@@ -75,6 +75,7 @@ from utils import Checksum, Misc
 import packets
 
 MTU = config.get('MTU', 1500);
+MSS = config.get('MSS', 536);
 
 class TransmissionControlBlock():
     def __init__(self):
@@ -196,24 +197,46 @@ class TCP():
                 tcp_packet.set_syn_bit(1)
                 tcp_packet.set_data_offset(5)
 
+                mss_option = packets.TCPMSSOption()
+                mss_option.set_mss(MSS)
+                mss_option.set_kind(packets.TCP_MSS_OPTION_KIND)
+                
+
+                end_option = packets.TCPOption()
+                end_option.set_kind(packets.TCP_OPTION_END_OF_OPTION_KIND)
+
+                noop_option = packets.TCPOption()
+                noop_option.set_kind(packets.TCP_NOOP_OPTION_KIND)
+                
+                
+
                 ipv4packet = packets.IPv4Packet()
                 ipv4packet.set_source_address(self.src_bytes)
                 ipv4packet.set_destination_address(self.dst_bytes)
                 ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
                 ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                tcp_packet.set_checksum(0)
+
+                tcp_packet.set_options([mss_option, noop_option, end_option])
 
                 pseudo_header = bytearray(self.src_bytes + \
                                             self.dst_bytes + \
                                                 bytearray([0]) + \
                                                     bytearray([packets.TCP_PROTOCOL_NUMBER]) + \
-                                                        Misc.int_to_bytes(len(ipv4packet.get_buffer())))
+                                                        Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                
                 tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
-                print(hex(tcp_checksum & 0xFFFF))
+                print("TCP CHECKSUM %s " % (hex(tcp_checksum & 0xFFFF)))
+
+                
+
+                print(list(tcp_packet.get_buffer()))
                 tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                 ipv4packet.set_payload(tcp_packet.get_buffer())
 
-
+                print("MSS OPTION BUFFER")
                 print("Sending TCP SYN packet to the sender %s" % (self.dst))
+                print(list(ipv4packet.get_buffer()))
                 self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
 
                 pass
