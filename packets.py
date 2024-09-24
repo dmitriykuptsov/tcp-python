@@ -74,7 +74,7 @@ class IPv4Packet(Packet):
         self.buffer[IPV4_DST_ADDRESS_OFFSET:IPV4_DST_ADDRESS_OFFSET + IPV4_DST_ADDRESS_LENGTH] = dst 
     def get_destination_address(self):
         return self.buffer[IPV4_DST_ADDRESS_OFFSET:IPV4_DST_ADDRESS_OFFSET + IPV4_DST_ADDRESS_LENGTH]
-    def set_payliad(self, payload):
+    def set_payload(self, payload):
         self.buffer = self.buffer + payload
     def get_payload(self):
         return self.buffer[IPV4_DST_ADDRESS_OFFSET + IPV4_DST_ADDRESS_LENGTH:]
@@ -103,6 +103,9 @@ CHECKSUM_LENGTH = 0x2
 URGENT_POINTER_OFFSET = 0x12
 URGENT_POINTER_LENGTH = 0x2
 OPTIONS_OFFSET = 0x18
+
+TCP_PROTOCOL_NUMBER = 6
+IP_DEFAULT_TTL = 128
 
 """
  0                   1                   2                   3
@@ -222,13 +225,18 @@ class TCPPacket(Packet):
     def set_window(self, window):
         self.buffer[WINDOW_OFFSET] = (window << 8) & 0xFF
         self.buffer[WINDOW_OFFSET + 1] = window & 0xFF
+    def set_checksum(self, checksum):
+        self.buffer[CHECKSUM_OFFSET] = (checksum >> 24) & 0xFF
+        self.buffer[CHECKSUM_OFFSET] = (checksum >> 16) & 0xFF
+        self.buffer[CHECKSUM_OFFSET] = (checksum >> 8) & 0xFF
+        self.buffer[CHECKSUM_OFFSET] = (checksum & 0xFF)
     def get_checksum(self):
-        seq = 0
-        seq = (self.buffer[CHECKSUM_OFFSET] << 24)
-        seq |= (self.buffer[CHECKSUM_OFFSET + 1] << 16)
-        seq |= (self.buffer[CHECKSUM_OFFSET + 2] << 8)
-        seq |= (self.buffer[CHECKSUM_OFFSET + 3])
-        return seq
+        checksum = 0
+        checksum = (self.buffer[CHECKSUM_OFFSET] << 24)
+        checksum |= (self.buffer[CHECKSUM_OFFSET + 1] << 16)
+        checksum |= (self.buffer[CHECKSUM_OFFSET + 2] << 8)
+        checksum |= (self.buffer[CHECKSUM_OFFSET + 3])
+        return checksum
     def set_sequence_number(self, checksum):
         self.buffer[CHECKSUM_OFFSET] = (checksum << 24) & 0xFF
         self.buffer[CHECKSUM_OFFSET + 1] = (checksum << 16) & 0xFF
@@ -286,6 +294,8 @@ class TCPPacket(Packet):
     def get_data(self, data):
         offset = self.get_data_offset() * 4
         return self.buffer[offset:offset + len(data)]
+    def get_buffer(self):
+        return self.buffer
 
 TCP_OPTION_END_OF_OPTION_KIND = 0x0
 TCP_NOOP_OPTION_KIND = 0x1

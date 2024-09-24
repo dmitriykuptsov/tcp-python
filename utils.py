@@ -65,6 +65,20 @@ class Misc():
         addr |= (int(parts[2]) & 0xFF << 8)
         addr |= (int(parts[3]) & 0xFF)
         return addr
+    
+    @staticmethod
+    def port_to_bytes(port):
+        buf = bytearray([0, 0])
+        buf[0] = ((port >> 8) & 0xFF)
+        buf[1] = (port & 0xFF)
+        return buf
+    
+    @staticmethod
+    def int_to_bytes(value):
+        buf = bytearray([0, 0])
+        buf[0] = ((value >> 8) & 0xFF)
+        buf[1] = (value & 0xFF)
+        return buf
 
 import os
 import hashlib

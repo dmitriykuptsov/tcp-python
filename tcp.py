@@ -69,6 +69,10 @@ import select
 # Timing
 from time import time, sleep
 from config import config
+# Utils 
+from utils import Checksum, Misc
+# Packets 
+import packets
 
 MTU = config.get('MTU', 1500);
 
@@ -186,10 +190,42 @@ class TCP():
     def __send__(self):
         while True:
             if self.state == self.states.CLOSED:
+                tcp_packet = packets.TCPPacket()
+                tcp_packet.set_source_port(self.sport)
+                tcp_packet.set_destination_port(self.dport)
+                tcp_packet.set_syn_bit(1)
+                tcp_packet.set_data_offset(5)
+
+                ipv4packet = packets.IPv4Packet()
+                ipv4packet.set_source_address(self.src_bytes)
+                ipv4packet.set_destination_address(self.dst_bytes)
+                ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                
+                ipv4packet.set_checksum(Checksum.checksum(ipv4packet.get_header()))
+
+                pseudo_header = bytearray(self.src_bytes + \
+                                            self.dst_bytes + \
+                                                bytearray([0]) + \
+                                                    bytearray([packets.TCP_PROTOCOL_NUMBER]) + Misc.int_to_bytes(len(ipv4packet.get_buffer())))
+                tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                tcp_packet.set_checksum(tcp_checksum)
+                ipv4packet.set_payload(tcp_packet.get_buffer())
+
+
+                print("Sending TCP SYN packet to the sender %s" % (self.dst))
+                self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+
                 pass
             self.__noop__()
 
     def open(self, src, dst, src_port, dst_port, listen = False):
+        self.src = src
+        self.dst = dst
+        self.src_bytes = Misc.ipv4_address_to_bytes(src)
+        self.dst_bytes = Misc.ipv4_address_to_bytes(dst)
+        self.sport = src_port
+        self.dport = dst_port
         # creates a raw socket and binds it to the source address
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
         self.socket.bind((src, 0))
