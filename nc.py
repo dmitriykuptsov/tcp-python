@@ -29,6 +29,8 @@ from time import sleep
 tcp = TCP()
 tcp.open("127.0.0.1", "127.0.0.1", 45000, 1000, listen=False)
 #print(TCPUtils.generate_isn(0, "localhost", "localhost", 22, 45000))
-
+print("------------------------------------------")
 while True:
+    print("SEND LOOP")
+    tcp.send(bytearray([0, 1, 2, 3, 4, 5]))
     sleep(1)
