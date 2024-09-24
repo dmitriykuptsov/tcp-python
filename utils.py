@@ -28,9 +28,9 @@ class Checksum():
         else:
             buffer_len = len(buffer) - 1
         for i in range(0, buffer_len, 2):
-            sum += (((buffer[i] << 8) & 0xFFFF) | (buffer[i + 1] & 0xFF))
+            sum += (((buffer[i] << 8) & 0xFF00) | (buffer[i + 1] & 0xFF))
         if len(buffer) % 2 != 0:
-            sum += ((buffer[len(buffer) - 1] << 8) & 0xFFFF)
+            sum += ((buffer[len(buffer) - 1] << 8) & 0xFF00)
         sum =  (sum >> 16) + (sum & 0xffff);
         sum += (sum >> 16);
         return ~sum;
