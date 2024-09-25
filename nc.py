@@ -27,10 +27,12 @@ from tcp import *
 from utils import TCPUtils
 from time import sleep
 tcp = TCP()
-tcp.open("127.0.0.1", "127.0.0.1", 45000, 1000, listen=False)
-#print(TCPUtils.generate_isn(0, "localhost", "localhost", 22, 45000))
+tcp.open("127.0.0.1", "127.0.0.1", 45000, 1001, listen=False)
+#print(TCPUtils.generate_isn(0, "localhost", "localhost", 22, 45000))0
 print("------------------------------------------")
-tcp.send(bytearray([ord("H"), ord("E"), ord("L"), ord("L"), ord("O")]))
+tcp.send(bytearray([ord("H"), ord("E"), ord("L"), ord("L"), ord("O"), ord(" "), ord("W"), ord("O"), ord("R"), ord("L"), ord("D"), ord("\n")]))
+sleep(5)
+tcp.send(bytearray([ord("H"), ord("E"), ord("L"), ord("L"), ord("O"), ord(" "), ord("W"), ord("O"), ord("R"), ord("L"), ord("D"), ord("\n")]))
 while True:
     print("SEND LOOP")
     #tcp.send(bytearray([chr("H"), chr("E"), chr("L"), chr("L"), chr("O")]))
