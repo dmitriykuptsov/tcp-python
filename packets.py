@@ -310,9 +310,9 @@ class TCPPacket(Packet):
     def set_data(self, data):
         offset = self.get_data_offset() * 4
         self.buffer[offset:offset + len(data)] = data
-    def get_data(self, data):
+    def get_data(self):
         offset = self.get_data_offset() * 4
-        return self.buffer[offset:offset + len(data)]
+        return self.buffer[offset:]
     def get_buffer(self):
         return self.buffer
 
