@@ -296,11 +296,7 @@ class TCP():
 
                 tcp_packet.set_options([mss_option, noop_option, end_option])
 
-                pseudo_header = bytearray(self.src_bytes + \
-                                            self.dst_bytes + \
-                                                bytearray([0]) + \
-                                                    bytearray([packets.TCP_PROTOCOL_NUMBER]) + \
-                                                        Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))
                 
                 tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
                 print("TCP CHECKSUM %s " % (hex(tcp_checksum & 0xFFFF)))
@@ -347,7 +343,6 @@ class TCP():
         print("SENDING DATA TO THE SERVER...........")
         print(self.state)
         if self.state == self.states.ESTABLISHED:
-            
             plen = MSS
             if len(self.data_to_send) < MSS:
                 plen = len(self.data_to_send)
@@ -372,11 +367,7 @@ class TCP():
 
             tcp_packet.set_data(data)
 
-            pseudo_header = bytearray(self.src_bytes + \
-                                        self.dst_bytes + \
-                                            bytearray([0]) + \
-                                                bytearray([packets.TCP_PROTOCOL_NUMBER]) + \
-                                                    Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+            pseudo_header = Misc.int_to_bytes(len(tcp_packet.get_buffer()))
                     
             tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
             print("TCP CHECKSUM %s " % (hex(tcp_checksum & 0xFFFF)))

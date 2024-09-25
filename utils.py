@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import packets
+
 class Checksum():
     @staticmethod
     def checksum(buffer):
@@ -79,6 +81,10 @@ class Misc():
         buf[0] = ((value >> 8) & 0xFF)
         buf[1] = (value & 0xFF)
         return buf
+    
+    @staticmethod
+    def make_pseudo_header(src, dst, length):
+        return bytearray(src + dst + bytearray([0]) + bytearray([packets.TCP_PROTOCOL_NUMBER]) + length)
 
 import os
 import hashlib
