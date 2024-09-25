@@ -25,7 +25,8 @@ import threading
 import socket
 import select
 # Timing
-from time import time, sleep
+import time
+from time import sleep, time
 from config import config
 # Utils 
 from utils import Checksum, Misc
@@ -34,6 +35,7 @@ import packets
 
 MTU = config.get('MTU', 1500);
 MSS = config.get('MSS', 536);
+MSL = config.get('MSL', 4800)
 
 class TransmissionControlBlock():
     def __init__(self):
@@ -55,6 +57,13 @@ class TransmissionControlBlock():
         self.rw = 0
         self.sport = 0
         self.dport = 0
+        self.msl_timeout = 0
+
+    def timeout(self, value = None):
+        if value:
+            self.msl_timeout = value
+        else:
+            return self.msl_timeout
     def snd_una(self, value = None):
         if value:
             self.snd_una = value
@@ -140,19 +149,42 @@ class TCP():
     def __noop__(self):
         sleep(0.1)
 
+    def __maintenance__(self):
+        while True:
+            if self.state == self.states.TIME_WAIT:
+                if self.tcb.timeout() >= time():
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+            elif self.state != self.states.CLOSED and self.tcb:
+                self.tcb.timeout(   time() + 2 * MSL)
+
     def __recv__(self):
         while True:
             buf = bytearray(self.socket.recv(MTU));
             ipv4packet = IPv4Packet(buf)
-            print(list(ipv4packet.get_destination_address()))
             if ipv4packet.get_destination_address() != self.src_bytes:
                 continue;
             tcp_packet = TCPPacket(ipv4packet.get_payload())
             if tcp_packet.get_source_port() != self.dport and tcp_packet.get_destination_port() != self.sport:
                 continue
 
+
             if self.state == self.states.CLOSED:
                 continue;
+            elif self.state == self.states.CLOSING:
+                if tcp_packet.get_ack_bit():
+                    self.state = self.states.TIME_WAIT
+            elif self.state == self.states.FIN_WAIT_1:
+                if tcp_packet.get_ack_bit():
+                    self.state = self.states.FIN_WAIT_2
+                elif tcp_packet.get_fin_bit():
+                    self.state = self.states.CLOSING
+                    # Send ACK
+            elif self.state == self.states.FIN_WAIT_2:
+                if tcp_packet.get_fin_bit():
+                    self.state = self.states.TIME_WAIT
+                    # Send ACK packet
+                pass
             elif self.state == self.states.SYN_SENT:
                 sequence = tcp_packet.get_sequence_number() + 1
                 window = tcp_packet.get_window()
@@ -191,18 +223,32 @@ class TCP():
                     self.state = self.states.ESTABLISHED
                     
                     self.tcb.rwnd = window
+                if tcp_packet.get_syn_bit():
+                    self.state = self.states.SYN_RECEIVED
+                    # Send ACK to peer
             elif self.state == self.states.ESTABLISHED:
                 if tcp_packet.get_ack_bit():
-                    print("GOT ACK")
-                    
                     if len(tcp_packet.get_data()) > 0:
-                        print("GOT DATA NEED TO ACK THE PACKET")
                         self.tcb.rcv_nxt += len(tcp_packet.get_data())
                     else:
                         pass
                     pass
+                elif tcp_packet.get_fin_bit():
+                    # send ACK packet
+                    self.state = self.states.CLOSE_WAIT
                 continue;
-
+            elif self.state == self.states.LISTEN:
+                if tcp_packet.get_syn_bit():
+                    # Send SYN+ACK
+                    self.state = self.states.SYN_RECEIVED
+            elif self.state == self.states.SYN_RECEIVED:
+                if tcp_packet.get_ack_bit():
+                    self.state = self.states.ESTABLISHED
+            elif self.state == self.states.LAST_ACK:
+                if tcp_packet.get_ack_bit():
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+            
     def __send__(self):
         while True:
             if self.state == self.states.CLOSED:
@@ -242,7 +288,7 @@ class TCP():
 
                 self.state = self.states.SYN_SENT
             
-            if self.state == self.states.ESTABLISHED:
+            elif self.state == self.states.ESTABLISHED:
                 
                 plen = MSS
                 if len(self.data_to_send) < MSS:
@@ -281,6 +327,9 @@ class TCP():
                 self.tcb.snd_nxt += plen
                 self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                 self.__noop__()
+            elif self.state == self.states.LISTEN:
+                # Send SYN packet
+                pass
 
     def open(self, src, dst, src_port, dst_port, listen = False):
         
@@ -299,9 +348,11 @@ class TCP():
         
         self.recv_thread = threading.Thread(target = self.__recv__, args = (), daemon = True);
         self.send_thread = threading.Thread(target = self.__send__, args = (), daemon = True);
+        self.maintenance_thread = threading.Thread(target = self.__maintenance__, args = (), daemon = True);
 
         self.recv_thread.start()
         self.send_thread.start()
+        self.maintenance_thread.start()
         
         self.tcb = TransmissionControlBlock()
         self.tcb.cwnd = config.get("IW", 4096)
@@ -319,10 +370,25 @@ class TCP():
         if len(self.received_data) >= len:
             buf = self.received_data[:len]
             self.received_data = self.received_data[len:]
-            return self.buf
+            return buf
     def close(self):
         # Send FIN packet
-        pass
+        if self.state == self.states.CLOSE_WAIT:
+            self.state = self.states.LAST_ACK
+            # send FIN packet
+            pass
+        elif self.state == self.states.SYN_SENT:
+            self.state = self.states.CLOSED
+            self.tcb = None
+        elif self.state == self.states.SYN_RECEIVED:
+            self.state = self.states.FIN_WAIT_1
+            # Send FIN packet
+        elif self.state == self.states.LISTEN:
+            self.state = self.states.CLOSED
+            self.tcb = None
+        elif self.state == self.states.ESTABLISHED:
+            # send FIN packet
+            self.state = self.states.FIN_WAIT_1
     def abort(self):
         pass
     def status(self):
