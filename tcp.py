@@ -95,6 +95,8 @@ class TransmissionControlBlock():
         self.rwnd = 0
         self.lw = 0
         self.rw = 0
+        self.sport = 0
+        self.dport = 0
     def snd_una(self, value = None):
         if value:
             self.snd_una = value
@@ -210,6 +212,9 @@ class TCP():
                 print("GOT SEQUNCE NUMBER IN THE SYN+ACK PACKET")
                 print(sequence)
                 window = tcp_packet.get_window()
+                self.tcb.snd_nxt = 1
+                self.tcb.rcv_nxt = sequence
+                self.tcb.snd_una = 1
 
                 if tcp_packet.get_syn_bit() and tcp_packet.get_ack_bit():
                     print("GOT SYN+ACK")
@@ -222,7 +227,7 @@ class TCP():
                     tcp_packet.set_acknowledgment_number(sequence)
                     print("SENDING NEXT ACK")
                     print(tcp_packet.get_acknowledgment_number())
-                    tcp_packet.set_sequence_number(1)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
                     tcp_packet.set_window(config.get("IW", 4096))
 
                     print("ACK BIT IS SET ON SYN+ACK RESPONSE %s" % (tcp_packet.get_ack_bit()))
@@ -236,10 +241,8 @@ class TCP():
                     ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
                     tcp_packet.set_checksum(0)
 
-                    pseudo_header = bytearray(self.src_bytes + \
-                                                self.dst_bytes + \
-                                                    bytearray([0]) + \
-                                                        bytearray([packets.TCP_PROTOCOL_NUMBER]) + \
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
                                                             Misc.int_to_bytes(len(tcp_packet.get_buffer())))
                     
                     tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
@@ -260,11 +263,11 @@ class TCP():
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
 
                     self.state = self.states.ESTABLISHED
-                    self.tcb = TransmissionControlBlock()
+                    #elf.tcb = TransmissionControlBlock()
                     self.tcb.cwnd = config.get("IW", 4096)
                     self.tcb.rwnd = window
-                    self.tcb.iss = 0
-                    self.tcb.irs = sequence
+                    #self.tcb.iss = 0
+                    #self.tcb.irs = sequence
                 continue;
 
     def __send__(self):
@@ -280,7 +283,6 @@ class TCP():
                 mss_option.set_mss(MSS)
                 mss_option.set_kind(packets.TCP_MSS_OPTION_KIND)
                 
-
                 end_option = packets.TCPOption()
                 end_option.set_kind(packets.TCP_OPTION_END_OF_OPTION_KIND)
 
@@ -310,7 +312,73 @@ class TCP():
                 self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
 
                 self.state = self.states.SYN_SENT
-            self.__noop__()
+            if self.state == self.states.ESTABLISHED:
+                
+                plen = MSS
+                if len(self.data_to_send) < MSS:
+                    plen = len(self.data_to_send)
+                if plen == 0:
+                    continue
+
+                print("SENDING DATA TO THE SERVER...........")
+                print(self.state)
+
+                data = self.data_to_send[:plen]
+                self.data_to_send = self.data_to_send[plen:]
+
+                tcp_packet = packets.TCPPacket()
+                tcp_packet.set_source_port(self.sport)
+                tcp_packet.set_destination_port(self.dport)
+                # Copy original sequence into the acknowledgement sequence
+                tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print(self.tcb.snd_nxt)
+                print(self.tcb.rcv_nxt)
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                print("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                tcp_packet.set_ack_bit(1)
+                tcp_packet.set_window(config.get("IW", 4096))
+                tcp_packet.set_data_offset(5)
+
+                ipv4packet = packets.IPv4Packet()
+                ipv4packet.set_source_address(self.src_bytes)
+                ipv4packet.set_destination_address(self.dst_bytes)
+                ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                tcp_packet.set_checksum(0)
+
+                tcp_packet.set_data(data)
+
+                pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                        
+                tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                #print("TCP CHECKSUM %s " % (hex( & 0xFFFF)))
+
+                print(list(tcp_packet.get_buffer()))
+                tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                ipv4packet.set_payload(tcp_packet.get_buffer())
+
+                self.tcb.snd_nxt += plen
+
+                print("Sending TCP ACK packet to the sender %s" % (self.dst))
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> %s" % tcp_packet.get_ack_bit())
+                print(list(tcp_packet.get_buffer()))
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> %s" % tcp_packet.get_ack_bit())
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> %s" % tcp_packet.get_ack_bit())
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> %s" % tcp_packet.get_ack_bit())
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> %s" % tcp_packet.get_ack_bit())
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> %s" % tcp_packet.get_ack_bit())
+                print(list(ipv4packet.get_buffer()))
+                self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+                self.__noop__()
 
     def open(self, src, dst, src_port, dst_port, listen = False):
         self.src = src
@@ -339,48 +407,7 @@ class TCP():
         
     def send(self, data):
         self.data_to_send += bytearray(data)
-        i = 1
-        print("SENDING DATA TO THE SERVER...........")
-        print(self.state)
-        if self.state == self.states.ESTABLISHED:
-            plen = MSS
-            if len(self.data_to_send) < MSS:
-                plen = len(self.data_to_send)
-            data = self.data_to_send[:plen]
-            self.data_to_send = self.data_to_send[plen:]
 
-            tcp_packet = packets.TCPPacket()
-            tcp_packet.set_source_port(self.sport)
-            tcp_packet.set_destination_port(self.dport)
-            # Copy original sequence into the acknowledgement sequence
-            tcp_packet.set_acknowledgment_number(self.tcb.irs + i)
-            tcp_packet.set_sequence_number(self.tcb.iss + 1)
-            tcp_packet.set_window(config.get("IW", 4096))
-            tcp_packet.set_data_offset(5)
-
-            ipv4packet = packets.IPv4Packet()
-            ipv4packet.set_source_address(self.src_bytes)
-            ipv4packet.set_destination_address(self.dst_bytes)
-            ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
-            ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
-            tcp_packet.set_checksum(0)
-
-            tcp_packet.set_data(data)
-
-            pseudo_header = Misc.int_to_bytes(len(tcp_packet.get_buffer()))
-                    
-            tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
-            print("TCP CHECKSUM %s " % (hex(tcp_checksum & 0xFFFF)))
-
-            print(list(tcp_packet.get_buffer()))
-            tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
-            ipv4packet.set_payload(tcp_packet.get_buffer())
-
-            i += MSS
-
-            print("Sending TCP ACK packet to the sender %s" % (self.dst))
-            print(list(ipv4packet.get_buffer()))
-            self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
     def receive(self, len):
         if len(self.received_data) >= len:
             buf = self.received_data[:len]
