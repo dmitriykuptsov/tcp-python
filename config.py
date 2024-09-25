@@ -15,5 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 config = {
-    "MSS": 536
+    "MSS": 536,
+    "MSL": 2400
 }
