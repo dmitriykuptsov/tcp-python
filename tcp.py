@@ -153,6 +153,7 @@ class TCP():
         while True:
             if self.state == self.states.TIME_WAIT:
                 if self.tcb.timeout() >= time():
+                    print("Connection was closed due to timeout")
                     self.state = self.states.CLOSED
                     self.tcb = None
             elif self.state != self.states.CLOSED and self.tcb:
@@ -160,6 +161,7 @@ class TCP():
 
     def __recv__(self):
         while True:
+            #print("GOT PACKET")
             buf = bytearray(self.socket.recv(MTU));
             ipv4packet = IPv4Packet(buf)
             if ipv4packet.get_destination_address() != self.src_bytes:
@@ -190,17 +192,27 @@ class TCP():
                 self.tcb.rcv_nxt = sequence
 
                 if tcp_packet.get_ack_bit():
-                    if tcp_packet.get_acknowledgment_number() < self.tcb.iss or tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
+                    print(tcp_packet.get_acknowledgment_number())
+                    if tcp_packet.get_acknowledgment_number() <= self.tcb.iss or tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
                         # Drop the packet and send RST
+                        print(tcp_packet.get_acknowledgment_number())
+                        print(self.tcb.iss)
+                        print(self.tcb.snd_nxt)
+                        print("Dropping packet and sending RST")
                         continue
-                    if not (tcp_packet.get_acknowledgment_number() >= self.tcb.snd_una and tcp_packet.get_acknowledgment_number() < self.tcb.snd_nxt):
+                    if not (tcp_packet.get_acknowledgment_number() >= self.tcb.snd_una and tcp_packet.get_acknowledgment_number() <= self.tcb.snd_nxt):
                         # ACK is not acceptable Drop the packet
+                        print(tcp_packet.get_acknowledgment_number())
+                        print(self.tcb.snd_una)
+                        print(self.tcb.snd_nxt)
+                        print("Silently dropping packet")
                         continue
                     if tcp_packet.get_rst_bit():
                         self.state = self.states.CLOSED
                 else:
                     if tcp_packet.get_rst_bit():
                         # Drop the packet and return
+                        print("RST bit is present... dropping packet")
                         continue
                 
                 if tcp_packet.get_syn_bit():
@@ -208,11 +220,14 @@ class TCP():
                     self.tcb.rcv_nxt = tcp_packet.get_sequence_number() + 1
                     self.tcb.irs = tcp_packet.get_sequence_number()
                     self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
+                    self.tcb.snd_wnd = config.get("IW", 4096)
+                    self.tcb.rcv_wnd = config.get("IW", 4096)
 
                     # Remove packets in retransmission queue
 
                     if self.tcb.snd_una > self.tcb.iss:
                         self.state = self.states.ESTABLISHED
+                        print("Moving to established state...")
 
                     tcp_packet = packets.TCPPacket()
                     tcp_packet.set_source_port(self.sport)
@@ -222,8 +237,8 @@ class TCP():
                     tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
                     tcp_packet.set_sequence_number(self.tcb.snd_nxt)
                     tcp_packet.set_ack_bit(1)
-                    tcp_packet.set_window(config.get("IW", 4096))
-                    tcp_packet.set_data_offset(5)    
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_data_offset(5)
 
                     ipv4packet = packets.IPv4Packet()
                     ipv4packet.set_source_address(self.src_bytes)
@@ -239,6 +254,7 @@ class TCP():
                     tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
                     tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                     ipv4packet.set_payload(tcp_packet.get_buffer())
+                    print("Sending the ack packet in response to SYN+ACK")
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
 
                     self.tcb.rwnd = window
@@ -254,7 +270,7 @@ class TCP():
                     tcp_packet.set_sequence_number(self.tcb.iss)
                     tcp_packet.set_ack_bit(1)
                     tcp_packet.set_syn_bit(1)
-                    tcp_packet.set_window(config.get("IW", 4096))
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
                     tcp_packet.set_data_offset(5)    
 
                     ipv4packet = packets.IPv4Packet()
@@ -276,23 +292,28 @@ class TCP():
             elif self.state == self.states.ESTABLISHED:
                 not_acceptable = False
                 if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
                     not_acceptable = True
 
                 if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
                     if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
                         not_acceptable = True
 
                 if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
                     if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
                         not_acceptable = True
 
                 if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
                     if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
                             (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
                              self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
                         not_acceptable = True
                     
                 if not_acceptable:
+                    print("Not acceptable data received")
                     tcp_packet = packets.TCPPacket()
                     tcp_packet.set_source_port(self.sport)
                     tcp_packet.set_destination_port(self.dport)
@@ -300,6 +321,7 @@ class TCP():
                     # Copy original sequence into the acknowledgement sequence
                     tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
                     tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
                     tcp_packet.set_ack_bit(1)
                     tcp_packet.set_data_offset(5)    
 
@@ -320,18 +342,84 @@ class TCP():
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     
                     continue
+                if tcp_packet.get_rst_bit():
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+                
+                if not tcp_packet.get_ack_bit():
+                    # Drop the packet and return
+                    continue
 
                 if tcp_packet.get_ack_bit():
-                    if len(tcp_packet.get_data()) > 0:
-                        self.tcb.rcv_nxt += len(tcp_packet.get_data())
-
-                        # Send data and ACK bit
-                    else:
-                        pass
-                    pass
+                    if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number()<= self.tcb.snd_nxt:
+                        self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
+                        # Remove the packets that have sequnce <= self.tcb.snd_una
+                        # Move those packets to the user's queue
+                        #Update the window
+                        if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
+                            (self.tcb.snd_wl1 == tcp_packet.get_sequence_number() and \
+                             self.tcb.snd_wl2 <= tcp_packet.get_acknowledgment_number()):
+                            self.tcb.snd_wnd = tcp_packet.get_window()
+                            self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
+                            self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
+                    # Duplicate aCK
+                    if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
+                        print("Duplicate ACK... ignoring...")
+                        continue
+                    if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
+                        # Send ACK and drop the packet
+                        print("ACK is not acknowledging anything... sending ACK in response")
+                        continue
+                
+                if tcp_packet.get_urg_bit():
+                    self.tcb.rcv_up = max(self.tcb.rcv_up, tcp_packet.get_urgent_pointer())
+                    # Signal the user
+                
                 elif tcp_packet.get_fin_bit():
                     # send ACK packet
                     self.state = self.states.CLOSE_WAIT
+
+                print("GOT DATA IN THE TCP PACKET:")
+                print(len(tcp_packet.get_data()) > 0)
+                print(tcp_packet.get_data())
+
+                # Advance the RCV_NXT
+                self.tcb.rcv_nxt += len(tcp_packet.get_data())
+                # Process the data in TCP packet
+
+                tcp_packet = packets.TCPPacket()
+                tcp_packet.set_source_port(self.sport)
+                tcp_packet.set_destination_port(self.dport)
+                    
+                tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                tcp_packet.set_window(self.tcb.snd_wnd)
+                tcp_packet.set_ack_bit(1)
+                tcp_packet.set_data_offset(5)    
+
+                ipv4packet = packets.IPv4Packet()
+                ipv4packet.set_source_address(self.src_bytes)
+                ipv4packet.set_destination_address(self.dst_bytes)
+                ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                tcp_packet.set_checksum(0)
+
+                pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                        self.dst_bytes, \
+                                                        Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                ipv4packet.set_payload(tcp_packet.get_buffer())
+                self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+                
                 continue;
             elif self.state == self.states.LISTEN:
                 if tcp_packet.get_syn_bit():
@@ -348,11 +436,12 @@ class TCP():
     def __send__(self):
         while True:
             if self.state == self.states.CLOSED:
-
+                print("Sending packet...")
+                self.tcb = TransmissionControlBlock()
                 self.tcb.iss = TCPUtils.generate_isn()
                 self.tcb.snd_una = self.tcb.iss
                 self.tcb.snd_nxt = self.tcb.iss + 1
-
+                print("Setting TCB ISS")
                 tcp_packet = packets.TCPPacket()
                 tcp_packet.set_source_port(self.sport)
                 tcp_packet.set_destination_port(self.dport)
@@ -409,7 +498,7 @@ class TCP():
                 tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
                 tcp_packet.set_sequence_number(self.tcb.snd_nxt)
                 tcp_packet.set_ack_bit(1)
-                tcp_packet.set_window(self.tcb.cwnd)
+                tcp_packet.set_window(self.tcb.rcv_wnd)
                 tcp_packet.set_data_offset(5)
 
                 ipv4packet = packets.IPv4Packet()
@@ -456,8 +545,8 @@ class TCP():
         self.send_thread.start()
         self.maintenance_thread.start()
         
-        self.tcb = TransmissionControlBlock()
-        self.tcb.cwnd = config.get("IW", 4096)
+        #self.tcb = TransmissionControlBlock()
+        #self.tcb.cwnd = config.get("IW", 4096)
 
         self.states = TCPStates()
         if listen:
