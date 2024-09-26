@@ -146,6 +146,7 @@ class TCP():
         self.last_recv_sequence = 0
         self.srtt = 1
         self.rto = 1
+        self.passive = False
         self.state = TCPStates().CLOSED
 
     def __noop__(self):
@@ -181,16 +182,250 @@ class TCP():
                 continue
             if self.state == self.states.CLOSED:
                 continue
+            elif self.state == self.states.CLOSE_WAIT:
+                # First check
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                
+                if not not_acceptable:
+                    continue
+                
+                # Second check
+
+                if tcp_packet.get_rst_bit():
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
+            elif self.state == self.states.TIME_WAIT:
+                # First check
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                if not not_acceptable:
+                    continue
+                # Second check
+
+                if tcp_packet.get_rst_bit():
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+                    continue
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
+            elif self.state == self.states.LAST_ACK:
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                if not not_acceptable:
+                    continue
+
+                # Second check
+
+                if tcp_packet.get_rst_bit():
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+                    continue
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+                
             elif self.state == self.states.CLOSING:
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                if not not_acceptable:
+                    continue
+                
+                # Second check
+
+                if tcp_packet.get_rst_bit():
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+                    continue
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
                 if tcp_packet.get_ack_bit():
                     self.state = self.states.TIME_WAIT
             elif self.state == self.states.FIN_WAIT_1:
+                # First check
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                if not not_acceptable:
+                    continue
+
+                # Second check
+
+                if tcp_packet.get_rst_bit():
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
                 if tcp_packet.get_ack_bit():
                     self.state = self.states.FIN_WAIT_2
                 elif tcp_packet.get_fin_bit():
                     self.state = self.states.CLOSING
                     # Send ACK
             elif self.state == self.states.FIN_WAIT_2:
+                # First check
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                if not not_acceptable:
+                    continue
+                # Second check
+
+                if tcp_packet.get_rst_bit():
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
                 if tcp_packet.get_fin_bit():
                     self.state = self.states.TIME_WAIT
                     # Send ACK packet
@@ -300,6 +535,7 @@ class TCP():
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
 
             elif self.state == self.states.ESTABLISHED:
+                # First check
                 not_acceptable = False
                 if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
                     print("Window is zero and the package is > 0")
@@ -352,17 +588,22 @@ class TCP():
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     
                     continue
+                
+                # Second check
+
                 if tcp_packet.get_rst_bit():
                     # Clean all queues
                     self.state = self.states.CLOSED
                     self.tcb = None
 
+                # Forth check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
                     # Clean all queues
                     self.state = self.states.CLOSED
                     self.tcb = None
                 
+                # Fifth check
                 if not tcp_packet.get_ack_bit():
                     # Drop the packet and return
                     continue
@@ -376,6 +617,7 @@ class TCP():
                         for seq in seqs:
                             if seq <= self.tcb.snd_una:
                                 del self.send_queue[seq]
+                                print("Deleting packets from the send queue")
 
                         # Move those packets to the user's queue
                         #Update the window
@@ -446,10 +688,84 @@ class TCP():
                     # Send SYN+ACK
                     self.state = self.states.SYN_RECEIVED
             elif self.state == self.states.SYN_RECEIVED:
+                # Second check
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                if not not_acceptable:
+                    continue
+                
+                # Second check
+                if self.passive:
+                    self.state = self.states.LISTEN
+                    continue
+                else:
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+                    continue
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
                 if tcp_packet.get_ack_bit():
                     self.state = self.states.ESTABLISHED
             elif self.state == self.states.LAST_ACK:
+                # First check
+                not_acceptable = False
+                if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
+                    print("Window is zero and the package is > 0")
+                    not_acceptable = True
+
+                if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
+                    if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
+                    if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
+                        print("Window > 0 plen=0 but the sequance is out of window")
+                        not_acceptable = True
+
+                if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
+                    if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
+                            (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
+                             self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        not_acceptable = True
+                if not not_acceptable:
+                    continue
+                
+                # Second check
                 if tcp_packet.get_ack_bit():
+                    self.state = self.states.CLOSED
+                    self.tcb = None
+
+                # Third check
+                if tcp_packet.get_syn_bit():
+                    # Send reset packet
+                    # Clean all queues
                     self.state = self.states.CLOSED
                     self.tcb = None
             
