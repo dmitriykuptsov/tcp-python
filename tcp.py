@@ -144,6 +144,8 @@ class TCP():
         self.data_to_send = bytearray([])
         self.last_send_sequence = 0
         self.last_recv_sequence = 0
+        self.srtt = 1
+        self.rto = 1
         self.state = TCPStates().CLOSED
 
     def __noop__(self):
@@ -156,8 +158,16 @@ class TCP():
                     print("Connection was closed due to timeout")
                     self.state = self.states.CLOSED
                     self.tcb = None
+            elif self.state == self.states.ESTABLISHED:
+                currenttime = time()
+                for seq in self.send_queue.keys():
+                    # Retransmit everything in the queue
+                    timestamp, rto, ipv4packet = self.send_queue[seq]
+                    if currenttime > rto:
+                        self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+                        self.send_queue[seq] = (time(), time() + self.rto, ipv4packet)
             elif self.state != self.states.CLOSED and self.tcb:
-                self.tcb.timeout(   time() + 2 * MSL)
+                self.tcb.timeout(time() + 2 * MSL)
 
     def __recv__(self):
         while True:
@@ -360,7 +370,13 @@ class TCP():
                 if tcp_packet.get_ack_bit():
                     if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number()<= self.tcb.snd_nxt:
                         self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
+
                         # Remove the packets that have sequnce <= self.tcb.snd_una
+                        seqs = list(self.send_queue.keys())
+                        for seq in seqs:
+                            if seq <= self.tcb.snd_una:
+                                del self.send_queue[seq]
+
                         # Move those packets to the user's queue
                         #Update the window
                         if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
@@ -386,9 +402,13 @@ class TCP():
                     # send ACK packet
                     self.state = self.states.CLOSE_WAIT
 
-                print("GOT DATA IN THE TCP PACKET:")
-                print(len(tcp_packet.get_data()) > 0)
-                print(tcp_packet.get_data())
+                #print("GOT DATA IN THE TCP PACKET:")
+                #print(len(tcp_packet.get_data()) > 0)
+                #print(tcp_packet.get_data())
+
+                if len(tcp_packet.get_data()) > 0:
+                    print(tcp_packet.get_data())
+                    self.receive_queue[tcp_packet.get_sequence_number()] = (time(), ipv4packet)
 
                 # Advance the RCV_NXT
                 self.tcb.rcv_nxt += len(tcp_packet.get_data())
@@ -514,6 +534,10 @@ class TCP():
                 
                 tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                 ipv4packet.set_payload(tcp_packet.get_buffer())
+
+                
+                # Put into the send queue timestamp, RTO, ipv4packet
+                self.send_queue[self.tcb.rcv_nxt] = (time(), time() + self.rto, ipv4packet)
                 
                 self.tcb.snd_nxt += plen
                 self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
