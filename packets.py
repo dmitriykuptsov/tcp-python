@@ -301,7 +301,6 @@ class TCPPacket(Packet):
             total_length += padding_length
             padding = bytearray([0] * padding_length)
         for o in options:
-            print(o.get_buffer())
             self.buffer += o.get_buffer()
 
         self.buffer += padding
