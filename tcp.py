@@ -36,6 +36,8 @@ import packets
 MTU = config.get('MTU', 1500);
 MSS = config.get('MSS', 536);
 MSL = config.get('MSL', 4800)
+UBOUND = 60
+LBOUND = 1
 
 class TransmissionControlBlock():
     def __init__(self):
@@ -263,6 +265,11 @@ class TCP():
                         #    if seq <= self.tcb.snd_una:
                         #        del self.send_queue[seq]
                         #        print("Deleting packets from the send queue")
+                        stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        rtimestamp = time()
+                        rtt = rtimestamp - stimestamp
+                        self.srtt = (ALPHA * rtt) + ((1 - ALPHA) * rtt)
+                        self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                         del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                         # Move those packets to the user's queue
@@ -281,8 +288,13 @@ class TCP():
                         # Send ACK and drop the packet
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
-                    if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
+                    if self.tcb.snd_una > tcp_packet.get_acknowledgment_number():
                         if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+                            stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
+                            rtimestamp = time()
+                            rtt = rtimestamp - stimestamp
+                            self.srtt = (ALPHA * rtt) + ((1 - ALPHA) * rtt)
+                            self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                             #print("REMOVING PACKET FROM SEND QUEUE")
                             del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
