@@ -175,7 +175,7 @@ class TCP():
                         continue
                     if currenttime > rto:
                         self.ssthresh = max (self.bytes_in_flight / 2, 2*MSS)
-                        self.tcb.snd_wnd = MSS;
+                        self.tcb.cwnd = MSS;
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                         self.send_queue[seq] = (time(), time() + self.rto, ipv4packet)
                 seqs = list(self.receive_queue.keys())
@@ -598,7 +598,7 @@ class TCP():
                     
                 tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
                 tcp_packet.set_sequence_number(self.tcb.snd_nxt)
-                tcp_packet.set_window(self.tcb.snd_wnd)
+                tcp_packet.set_window(self.tcb.rcv_wnd)
                 tcp_packet.set_ack_bit(1)
                 tcp_packet.set_data_offset(5)    
 
@@ -724,7 +724,7 @@ class TCP():
                     
                 tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
                 tcp_packet.set_sequence_number(self.tcb.snd_nxt)
-                tcp_packet.set_window(self.tcb.snd_wnd)
+                tcp_packet.set_window(self.tcb.rcv_wnd)
                 tcp_packet.set_ack_bit(1)
                 tcp_packet.set_data_offset(5)    
 
