@@ -178,6 +178,9 @@ class TCP():
                         self.tcb.cwnd = MSS;
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                         self.send_queue[seq] = (time(), time() + self.rto, ipv4packet)
+                        #print("Retransmitting the packet...")
+                        tcp_packet = TCPPacket(ipv4packet.get_payload())
+                        #print("SEND SEQUENCE...... %s %s" % (tcp_packet.get_sequence_number(), seq))
                 seqs = list(self.receive_queue.keys())
                 seqs.sort()
                 if len(seqs) == 1:
@@ -185,6 +188,7 @@ class TCP():
                     tcp_packet = TCPPacket(ipv4packet.get_payload())
                     self.received_data += tcp_packet.get_data()
                     del self.receive_queue[seqs[0]]
+                    #print("Removing the packet from the receive queue")
                 else:
                     for i in range(0, len(seqs) - 1):
                         timestamp, ipv4packet = self.receive_queue.get(seqs[i], None)
@@ -194,6 +198,7 @@ class TCP():
                         if seqs[i + 1] - seqs[i] - len(tcp_packet.get_data()) == 0:
                             self.received_data += tcp_packet.get_data()
                             del self.receive_queue[seqs[i]]
+                            #print("Removing the packet from the receive queue 2")
                             continue
                         else:
                             break
@@ -905,7 +910,7 @@ class TCP():
                     tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                     ipv4packet.set_payload(tcp_packet.get_buffer())
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
-                    
+                    #print("NOT ACCEPTABLE SEQUENCE")
                     continue
                 
                 # Second check
@@ -930,16 +935,11 @@ class TCP():
                     continue
 
                 if tcp_packet.get_ack_bit():
-                    
+                    #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                     if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number()<= self.tcb.snd_nxt:
                         self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
-
+                        #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
                         # Remove the packets that have sequnce <= self.tcb.snd_una
-
-                        #seqs = list(self.send_queue.keys())
-                        #for seq in seqs:
-                        #    if seq <= self.tcb.snd_una:
-                        #        del self.send_queue[seq]
 
                         stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
                         rtimestamp = time()
@@ -951,6 +951,13 @@ class TCP():
                         self.bytes_in_flight -= len(old_tcp_packet.get_data())
 
                         del self.send_queue[tcp_packet.get_acknowledgment_number()]
+
+                        seqs = list(self.send_queue.keys())
+                        for seq in seqs:
+                            if seq <= self.tcb.snd_una:
+                                del self.send_queue[seq]
+                        
+                        #print("REMOVING PACKET FROM THE SEND QUEUE 1")
                         
                         
                         #del self.send_queue[tcp_packet.get_acknowledgment_number()]
@@ -979,9 +986,13 @@ class TCP():
                         # Send ACK and drop the packet
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
+                    #print("UNA %s %s" % (self.tcb.snd_una, tcp_packet.get_acknowledgment_number()   ))
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
-                        if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+                        if self.send_queue.get(tcp_packet.get_acknowledgment_number(), None):
+                            #print("REMOVING THE PACKET FROM THE SEND QUEUE...")
 
+                            
+                        
                             stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
                             rtimestamp = time()
                             rtt = rtimestamp - stimestamp
@@ -991,8 +1002,17 @@ class TCP():
                             old_tcp_packet = TCPPacket(packet.get_payload())
                             self.bytes_in_flight -= len(old_tcp_packet.get_data())
 
-                            del self.send_queue[tcp_packet.get_acknowledgment_number()]
-                        #continue
+                            seqs = list(self.send_queue.keys())
+                            for seq in seqs:
+                                if seq <= tcp_packet.get_acknowledgment_number():
+                                    del self.send_queue[seq]
+
+                        else:
+                            #print("CANNOT FIND SEQ IN THE")
+                            pass
+                    else:
+                        #print("CANNOT REMOVE THE PACKET FROM THE SEND QUEUE")
+                        pass
                 
                 if tcp_packet.get_urg_bit():
                     self.tcb.rcv_up = max(self.tcb.rcv_up, tcp_packet.get_urgent_pointer())
@@ -1009,6 +1029,7 @@ class TCP():
                 # Seventh check
 
                 if len(tcp_packet.get_data()) > 0:
+                    #print("Adding the packet into the receive queue")
                     self.receive_queue[tcp_packet.get_sequence_number()] = (time(), ipv4packet)
 
                 # Advance the RCV_NXT
@@ -1078,14 +1099,14 @@ class TCP():
                     continue
                 
                 # Second check
-                if self.passive:
-                    self.state = self.states.LISTEN
-                    continue
-                else:
-                    self.state = self.states.CLOSED
-                    self.tcb = None
-                    #print("Moving to close state SYN_RECEIVED")
-                    continue
+                #if self.passive:
+                #    self.state = self.states.LISTEN
+                #    continue
+                #else:
+                #    self.state = self.states.CLOSED
+                #    self.tcb = None
+                #    #print("Moving to close state SYN_RECEIVED")
+                #    continue
 
                 # Third check
                 if tcp_packet.get_syn_bit():
@@ -1211,6 +1232,7 @@ class TCP():
                 max_window = min(self.tcb.cwnd, self.tcb.snd_wnd)
 
                 if self.bytes_in_flight + plen > max_window:
+                    #print("MAX WINDOW... CANNOT SEND")
                     continue
 
                 data = self.data_to_send[:plen]
@@ -1244,6 +1266,7 @@ class TCP():
                 self.tcb.snd_nxt += plen
 
                 # Put into the send queue timestamp, RTO, ipv4packet
+                #print("ADDDED SEQ TO SEND QUEUE %s" % self.tcb.snd_nxt)
                 self.send_queue[self.tcb.snd_nxt] = (time(), time() + self.rto, ipv4packet)
                 self.bytes_in_flight += len(tcp_packet.get_data())
                 
