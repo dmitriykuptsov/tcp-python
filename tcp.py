@@ -273,13 +273,15 @@ class TCP():
                             self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
                             self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
                     # Duplicate aCK
-                    if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
-                        #print("Duplicate ACK... ignoring...")
-                        continue
+                    #if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
+                    #    #print("Duplicate ACK... ignoring...")
+                    #    continue
                     if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
                         # Send ACK and drop the packet
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
+                    if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
+                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
             elif self.state == self.states.TIME_WAIT:
                 # First check
@@ -466,13 +468,15 @@ class TCP():
                             self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
                             self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
                     # Duplicate aCK
-                    if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
-                        #print("Duplicate ACK... ignoring...")
-                        continue
+                    #if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
+                    #    #print("Duplicate ACK... ignoring...")
+                    #    continue
                     if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
                         # Send ACK and drop the packet
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
+                    if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
+                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                 if tcp_packet.get_ack_bit():
                     self.state = self.states.TIME_WAIT
@@ -547,13 +551,15 @@ class TCP():
                             self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
                             self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
                     # Duplicate aCK
-                    if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
-                        #print("Duplicate ACK... ignoring...")
-                        continue
+                    #if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
+                    #    #print("Duplicate ACK... ignoring...")
+                    #    continue
                     if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
                         # Send ACK and drop the packet
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
+                    if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
+                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                 # Seventh check
 
@@ -669,13 +675,15 @@ class TCP():
                             self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
                             self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
                     # Duplicate aCK
-                    if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
-                        #print("Duplicate ACK... ignoring...")
-                        continue
+                    #if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
+                    #    #print("Duplicate ACK... ignoring...")
+                    #    continue
                     if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
                         # Send ACK and drop the packet
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
+                    if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
+                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                 # Seventh check
 
@@ -920,13 +928,15 @@ class TCP():
                             self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
                             self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
                     # Duplicate aCK
-                    if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
-                        #print("Duplicate ACK... ignoring...")
-                        continue
+                    #if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
+                    #    #print("Duplicate ACK... ignoring...")
+                    #    continue
                     if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
                         # Send ACK and drop the packet
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
+                    if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
+                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
                 
                 if tcp_packet.get_urg_bit():
                     self.tcb.rcv_up = max(self.tcb.rcv_up, tcp_packet.get_urgent_pointer())
