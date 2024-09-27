@@ -164,8 +164,9 @@ class TCP():
                 seqs = list(self.send_queue.keys())
                 for seq in seqs:
                     # Retransmit everything in the queue
-                    timestamp, rto, ipv4packet = self.send_queue.get(seq, None)
-                    if not timestamp:
+                    try:
+                        timestamp, rto, ipv4packet = self.send_queue.get(seq, None)
+                    except:
                         continue
                     if currenttime > rto:
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
@@ -947,7 +948,6 @@ class TCP():
                         continue
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
                         if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
-                            print("REMOVING PACKET FROM SEND QUEUE")
                             del self.send_queue[tcp_packet.get_acknowledgment_number()]
                         #continue
                 
@@ -1004,6 +1004,7 @@ class TCP():
                 
                 continue;
             elif self.state == self.states.LISTEN:
+                
                 if tcp_packet.get_syn_bit():
                     # Send SYN+ACK
                     self.state = self.states.SYN_RECEIVED
