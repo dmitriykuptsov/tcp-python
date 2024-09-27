@@ -32,7 +32,10 @@ from utils import TCPUtils
 from time import sleep
 # Arguments parser
 import argparse
-
+# Threading
+import threading
+# System calls
+import sys
 
 parser = argparse.ArgumentParser(
                         prog='nc',
@@ -42,17 +45,42 @@ parser.add_argument("--src", dest="src", required=True, help="Source address")
 parser.add_argument("--dst", dest="dst", required=True, help="Destination address")
 parser.add_argument("--source-port", dest="sport", required=True, help="Source port", type=int)
 parser.add_argument("--destination-port", dest="dport", required=True, help="Destination port", type=int)
-parser.add_argument("-l", required=True, help="Listen mode", action="store_true")
+parser.add_argument("-l", required=False, help="Listen mode", action="store_true")
 args = parser.parse_args()
 
 tcp = TCP()
+
+if not args.l:
+    args.l = False
+
+# Open TCP channel
 tcp.open(args.src, args.dst, args.sport, args.dport, listen=args.l)
-#print(TCPUtils.generate_isn(0, "localhost", "localhost", 22, 45000))0
-print("------------------------------------------")
-tcp.send(bytearray([ord("H"), ord("E"), ord("L"), ord("L"), ord("O"), ord(" "), ord("W"), ord("O"), ord("R"), ord("L"), ord("D"), ord("\n")]))
-sleep(5)
-tcp.send(bytearray([ord("H"), ord("E"), ord("L"), ord("L"), ord("O"), ord(" "), ord("W"), ord("O"), ord("R"), ord("L"), ord("D"), ord("\n")]))
+
+# Receive loop
+def __recv__():
+    while True:
+        buf = tcp.receive(100)
+        if buf:
+            s = "".join(map(chr, list(buf)))
+            sys.stdout.write("%s\n> "  % (s.strip()))
+        
+# Send loop
+def __send__():
+    while True:
+        sys.stdout.write("> ")
+        sys.stdout.flush()
+        s = sys.stdin.readline()
+        data = s.encode("ascii")
+        if s.strip() == "exit":
+            exit(0)
+        tcp.send(data)
+
+recv_thread = threading.Thread(target = __recv__, args = (), daemon = True);
+send_thread = threading.Thread(target = __send__, args = (), daemon = True);
+
+recv_thread.start()
+send_thread.start()
+
 while True:
-    #print("SEND LOOP")
-    #tcp.send(bytearray([chr("H"), chr("E"), chr("L"), chr("L"), chr("O")]))
+    # Main loop
     sleep(1)
