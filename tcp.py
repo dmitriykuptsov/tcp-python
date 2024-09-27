@@ -281,7 +281,9 @@ class TCP():
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
-                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+                            #print("REMOVING PACKET FROM SEND QUEUE")
+                            del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
             elif self.state == self.states.TIME_WAIT:
                 # First check
@@ -476,7 +478,9 @@ class TCP():
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
-                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+                            #print("REMOVING PACKET FROM SEND QUEUE")
+                            del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                 if tcp_packet.get_ack_bit():
                     self.state = self.states.TIME_WAIT
@@ -559,7 +563,9 @@ class TCP():
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
-                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+                            #print("REMOVING PACKET FROM SEND QUEUE")
+                            del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                 # Seventh check
 
@@ -683,7 +689,9 @@ class TCP():
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
-                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+                            #print("REMOVING PACKET FROM SEND QUEUE")
+                            del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                 # Seventh check
 
@@ -916,8 +924,10 @@ class TCP():
                         #for seq in seqs:
                         #    if seq <= self.tcb.snd_una:
                         #        del self.send_queue[seq]
-                        #        print("Deleting packets from the send queue")
                         del self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        
+                        
+                        #del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                         # Move those packets to the user's queue
                         #Update the window
@@ -936,7 +946,10 @@ class TCP():
                         #print("ACK is not acknowledging anything... sending ACK in response")
                         continue
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
-                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+                            print("REMOVING PACKET FROM SEND QUEUE")
+                            del self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        #continue
                 
                 if tcp_packet.get_urg_bit():
                     self.tcb.rcv_up = max(self.tcb.rcv_up, tcp_packet.get_urgent_pointer())
@@ -1177,11 +1190,11 @@ class TCP():
                 tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                 ipv4packet.set_payload(tcp_packet.get_buffer())
 
-                
-                # Put into the send queue timestamp, RTO, ipv4packet
-                self.send_queue[self.tcb.rcv_nxt] = (time(), time() + self.rto, ipv4packet)
-                
                 self.tcb.snd_nxt += plen
+
+                # Put into the send queue timestamp, RTO, ipv4packet
+                self.send_queue[self.tcb.snd_nxt] = (time(), time() + self.rto, ipv4packet)
+                
                 self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                 #self.__noop__()
             elif self.state == self.states.LISTEN:
