@@ -613,11 +613,12 @@ class TCP():
                         self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
 
                         # Remove the packets that have sequnce <= self.tcb.snd_una
-                        seqs = list(self.send_queue.keys())
-                        for seq in seqs:
-                            if seq <= self.tcb.snd_una:
-                                del self.send_queue[seq]
-                                print("Deleting packets from the send queue")
+                        #seqs = list(self.send_queue.keys())
+                        #for seq in seqs:
+                        #    if seq <= self.tcb.snd_una:
+                        #        del self.send_queue[seq]
+                        #        print("Deleting packets from the send queue")
+                        del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                         # Move those packets to the user's queue
                         #Update the window
