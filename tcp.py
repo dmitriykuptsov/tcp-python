@@ -145,7 +145,7 @@ class TCP():
         self.received_data = bytearray([])
         self.data_to_send = bytearray([])
         self.last_send_sequence = 0
-        self.last_recv_sequence = 0
+        self.last_recv_sequence = -1
         self.srtt = 1
         self.rto = 1
         self.passive = False
@@ -176,6 +176,8 @@ class TCP():
                     if currenttime > rto:
                         self.ssthresh = max (self.bytes_in_flight / 2, 2*MSS)
                         self.tcb.cwnd = MSS;
+                        tcp_packet = TCPPacket(ipv4packet.get_payload())
+                        tcp_packet.set_sequence_number(self.tcb.snd_nxt)
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                         self.send_queue[seq] = (time(), time() + self.rto, ipv4packet)
                         #print("Retransmitting the packet...")
@@ -860,30 +862,31 @@ class TCP():
 
             elif self.state == self.states.ESTABLISHED:
                 # First check
+                print("GOT PACKET FROM THE OTHER SIDE")
                 not_acceptable = False
                 if (self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) > 0):
-                    #print("Window is zero and the package is > 0")
+                    print("Window is zero and the package is > 0")
                     not_acceptable = True
 
                 if self.tcb.rcv_wnd == 0 and len(tcp_packet.get_data()) == 0:
                     if tcp_packet.get_sequence_number() != self.tcb.rcv_nxt:
-                        #print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
+                        print("Window is zero and the packet length is zero, but the tcp_packet.sequence is not equal to rcv_nxt")
                         not_acceptable = True
 
                 if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) == 0:
                     if not (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd):
-                        #print("Window > 0 plen=0 but the sequance is out of window")
+                        print("Window > 0 plen=0 but the sequance is out of window")
                         not_acceptable = True
 
                 if self.tcb.rcv_wnd > 0 and len(tcp_packet.get_data()) > 0:
                     if not ((self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() and tcp_packet.get_sequence_number() < self.tcb.rcv_nxt + self.tcb.rcv_wnd) or \
                             (self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) and \
                              self.tcb.rcv_nxt <= tcp_packet.get_sequence_number() + len(tcp_packet.get_data()) < self.tcb.rcv_nxt + self.tcb.rcv_wnd)):
-                        #print("W>0 plen>0 but the rcv_nxt <= seq < ")
+                        print("W>0 plen>0 but the rcv_nxt <= seq < ")
                         not_acceptable = True
                     
                 if not_acceptable:
-                    #print("Not acceptable data received")
+                    print("Not acceptable data received")
                     tcp_packet = packets.TCPPacket()
                     tcp_packet.set_source_port(self.sport)
                     tcp_packet.set_destination_port(self.dport)
@@ -910,7 +913,7 @@ class TCP():
                     tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                     ipv4packet.set_payload(tcp_packet.get_buffer())
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
-                    #print("NOT ACCEPTABLE SEQUENCE")
+                    print("NOT ACCEPTABLE SEQUENCE")
                     continue
                 
                 # Second check
@@ -919,7 +922,7 @@ class TCP():
                     # Clean all queues
                     self.state = self.states.CLOSED
                     self.tcb = None
-                    #print("Moving to close state EST 1")
+                    print("Moving to close state EST 1")
 
                 # Forth check
                 if tcp_packet.get_syn_bit():
@@ -927,7 +930,7 @@ class TCP():
                     # Clean all queues
                     self.state = self.states.CLOSED
                     self.tcb = None
-                    #print("Moving to close state EST 2")
+                    print("Moving to close state EST 2")
                 
                 # Fifth check
                 if not tcp_packet.get_ack_bit():
@@ -935,10 +938,10 @@ class TCP():
                     continue
 
                 if tcp_packet.get_ack_bit():
-                    #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
+                    print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                     if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number()<= self.tcb.snd_nxt:
                         self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
-                        #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
+                        print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
                         # Remove the packets that have sequnce <= self.tcb.snd_una
 
                         stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
@@ -978,41 +981,19 @@ class TCP():
                             self.tcb.snd_wnd = tcp_packet.get_window()
                             self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
                             self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
-                    # Duplicate aCK
+                    # Duplicate ACK
                     #if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
                     #    #print("Duplicate ACK... ignoring...")
                     #    continue
-                    if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
-                        # Send ACK and drop the packet
-                        #print("ACK is not acknowledging anything... sending ACK in response")
-                        continue
+                    #if tcp_packet.get_acknowledgment_number() > self.tcb.snd_nxt:
+                    #    # Send ACK and drop the packet
+                    #    #print("ACK is not acknowledging anything... sending ACK in response")
+                    #    continue
                     #print("UNA %s %s" % (self.tcb.snd_una, tcp_packet.get_acknowledgment_number()   ))
-                    if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
-                        if self.send_queue.get(tcp_packet.get_acknowledgment_number(), None):
-                            #print("REMOVING THE PACKET FROM THE SEND QUEUE...")
-
-                            
-                        
-                            stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
-                            rtimestamp = time()
-                            rtt = rtimestamp - stimestamp
-                            self.srtt = (ALPHA * rtt) + ((1 - ALPHA) * rtt)
-                            self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
-                            
-                            old_tcp_packet = TCPPacket(packet.get_payload())
-                            self.bytes_in_flight -= len(old_tcp_packet.get_data())
-
-                            seqs = list(self.send_queue.keys())
-                            for seq in seqs:
-                                if seq <= tcp_packet.get_acknowledgment_number():
-                                    del self.send_queue[seq]
-
-                        else:
-                            #print("CANNOT FIND SEQ IN THE")
-                            pass
-                    else:
-                        #print("CANNOT REMOVE THE PACKET FROM THE SEND QUEUE")
-                        pass
+                    if self.tcb.snd_una > tcp_packet.get_acknowledgment_number():
+                        # Retransmission
+                        print("RETRANSMISSION")
+                        continue
                 
                 if tcp_packet.get_urg_bit():
                     self.tcb.rcv_up = max(self.tcb.rcv_up, tcp_packet.get_urgent_pointer())
@@ -1022,9 +1003,9 @@ class TCP():
                     # send ACK packet
                     self.state = self.states.CLOSE_WAIT
 
-                ##print("GOT DATA IN THE TCP PACKET:")
-                ##print(len(tcp_packet.get_data()) > 0)
-                ##print(tcp_packet.get_data())
+                #print("GOT DATA IN THE TCP PACKET:")
+                #print(len(tcp_packet.get_data()) > 0)
+                #print(tcp_packet.get_data())
 
                 # Seventh check
 
@@ -1034,14 +1015,26 @@ class TCP():
 
                 # Advance the RCV_NXT
                 self.tcb.rcv_nxt += len(tcp_packet.get_data())
+                #self.tcb.rcv_nxt = tcp_packet.get_sequence_number() + len(tcp_packet.get_data())
+                if self.last_recv_sequence >= 0:
+                    if tcp_packet.get_sequence_number() - self.last_recv_sequence - len(tcp_packet.get_data()) == 0:
+                        #self.last_recv_sequence = tcp_packet.get_sequence_number() + len(tcp_packet.get_data())
+                        self.last_recv_sequence = tcp_packet.get_sequence_number()
+                        #self.tcb.rcv_nxt = tcp_packet.get_sequence_number()
+                else:
+                    #self.last_recv_sequence = tcp_packet.get_sequence_number() + len(tcp_packet.get_data())
+                    self.last_recv_sequence = tcp_packet.get_sequence_number()
+                    #self.tcb.rcv_nxt = tcp_packet.get_sequence_number()
                 # Process the data in TCP packet
 
                 tcp_packet = packets.TCPPacket()
                 tcp_packet.set_source_port(self.sport)
                 tcp_packet.set_destination_port(self.dport)
-                    
+
+                #tcp_packet.set_acknowledgment_number(self.last_recv_sequence)    
                 tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
                 tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                
                 tcp_packet.set_window(self.tcb.snd_wnd)
                 tcp_packet.set_ack_bit(1)
                 tcp_packet.set_data_offset(5)    
@@ -1232,7 +1225,7 @@ class TCP():
                 max_window = min(self.tcb.cwnd, self.tcb.snd_wnd)
 
                 if self.bytes_in_flight + plen > max_window:
-                    #print("MAX WINDOW... CANNOT SEND")
+                    print("MAX WINDOW... CANNOT SEND")
                     continue
 
                 data = self.data_to_send[:plen]
