@@ -53,7 +53,7 @@ class TransmissionControlBlock():
         self.rcv_up = 0
         self.irs = 0
         self.iw = 0
-        self.cwnd = 0
+        self.cwnd = MSS
         self.rwnd = 0
         self.lw = 0
         self.rw = 0
@@ -150,6 +150,9 @@ class TCP():
         self.rto = 1
         self.passive = False
         self.state = TCPStates().CLOSED
+        self.ssthresh = 2 * MSS
+        self.bytes_in_flight = 0
+        self.cwnd = MSS
 
     def __noop__(self):
         sleep(0.1)
@@ -171,6 +174,8 @@ class TCP():
                     except:
                         continue
                     if currenttime > rto:
+                        self.ssthresh = max (self.bytes_in_flight / 2, 2*MSS)
+                        self.tcb.snd_wnd = MSS;
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                         self.send_queue[seq] = (time(), time() + self.rto, ipv4packet)
                 seqs = list(self.receive_queue.keys())
@@ -265,11 +270,7 @@ class TCP():
                         #    if seq <= self.tcb.snd_una:
                         #        del self.send_queue[seq]
                         #        print("Deleting packets from the send queue")
-                        stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
-                        rtimestamp = time()
-                        rtt = rtimestamp - stimestamp
-                        self.srtt = (ALPHA * rtt) + ((1 - ALPHA) * rtt)
-                        self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
+                        
                         del self.send_queue[tcp_packet.get_acknowledgment_number()]
 
                         # Move those packets to the user's queue
@@ -482,6 +483,7 @@ class TCP():
                             self.tcb.snd_wnd = tcp_packet.get_window()
                             self.tcb.snd_wl1 = tcp_packet.get_sequence_number()
                             self.tcb.snd_wl2 = tcp_packet.get_acknowledgment_number()
+                        
                     # Duplicate aCK
                     #if tcp_packet.get_acknowledgment_number() < self.tcb.snd_una:
                     #    #print("Duplicate ACK... ignoring...")
@@ -928,6 +930,7 @@ class TCP():
                     continue
 
                 if tcp_packet.get_ack_bit():
+                    
                     if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number()<= self.tcb.snd_nxt:
                         self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
 
@@ -937,6 +940,16 @@ class TCP():
                         #for seq in seqs:
                         #    if seq <= self.tcb.snd_una:
                         #        del self.send_queue[seq]
+
+                        stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
+                        rtimestamp = time()
+                        rtt = rtimestamp - stimestamp
+                        self.srtt = (ALPHA * rtt) + ((1 - ALPHA) * rtt)
+                        self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
+                        
+                        old_tcp_packet = TCPPacket(packet.get_payload())
+                        self.bytes_in_flight -= len(old_tcp_packet.get_data())
+
                         del self.send_queue[tcp_packet.get_acknowledgment_number()]
                         
                         
@@ -944,6 +957,14 @@ class TCP():
 
                         # Move those packets to the user's queue
                         #Update the window
+
+                        #self.bytes_in_flight = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
+
+                        if self.tcb.cwnd < self.ssthresh:
+                            self.tcb.cwnd += MSS
+                        else:
+                            self.tcb.cwnd += MSS * MSS / self.tcb.snd_wnd
+                            
                         if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
                             (self.tcb.snd_wl1 == tcp_packet.get_sequence_number() and \
                              self.tcb.snd_wl2 <= tcp_packet.get_acknowledgment_number()):
@@ -960,6 +981,16 @@ class TCP():
                         continue
                     if self.tcb.snd_una >= tcp_packet.get_acknowledgment_number():
                         if self.send_queue.get(tcp_packet.get_acknowledgment_number()):
+
+                            stimestamp, rto, packet = self.send_queue[tcp_packet.get_acknowledgment_number()]
+                            rtimestamp = time()
+                            rtt = rtimestamp - stimestamp
+                            self.srtt = (ALPHA * rtt) + ((1 - ALPHA) * rtt)
+                            self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
+                            
+                            old_tcp_packet = TCPPacket(packet.get_payload())
+                            self.bytes_in_flight -= len(old_tcp_packet.get_data())
+
                             del self.send_queue[tcp_packet.get_acknowledgment_number()]
                         #continue
                 
@@ -1175,6 +1206,13 @@ class TCP():
                 if plen == 0:
                     continue
 
+                #if self.tcb.snd_wnd
+
+                max_window = min(self.tcb.cwnd, self.tcb.snd_wnd)
+
+                if self.bytes_in_flight + plen > max_window:
+                    continue
+
                 data = self.data_to_send[:plen]
                 self.data_to_send = self.data_to_send[plen:]
 
@@ -1207,6 +1245,7 @@ class TCP():
 
                 # Put into the send queue timestamp, RTO, ipv4packet
                 self.send_queue[self.tcb.snd_nxt] = (time(), time() + self.rto, ipv4packet)
+                self.bytes_in_flight += len(tcp_packet.get_data())
                 
                 self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                 #self.__noop__()
