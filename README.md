@@ -8,13 +8,13 @@ To test the implmentation of TCP we have created a simple network cat utitlity.
 
 Netcat in server mode
 ```
-$ python nc.py -l host port
+$ sudo python3 nc.py --src [src] --source-port [sport] -l
 ```
 
 Netcat in client mode
 
 ```
-$ python nc.py host port
+$ sudo python3 nc.py --src [src] --dst [dst] --source-port [sport] --destination-port [dport]
 ```
 
 Prevent Linux kernel from replying to custom TCP handshake
