@@ -24,5 +24,5 @@ $ sudo iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
 
 Simulate packet drop on loopback interface
 ```
-$ sudo tc qdisc add dev lo root netem loss 50%
+$ sudo tc qdisc add dev lo root netem loss 50% delay 300 100
 ```
