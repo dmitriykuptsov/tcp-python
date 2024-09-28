@@ -73,6 +73,9 @@ def __send__():
         data = s.encode("ascii")
         if s.strip() == "exit":
             exit(0)
+        if s.strip() == "status":
+            print(tcp.status().strip())
+            continue
         tcp.send(data)
 
 recv_thread = threading.Thread(target = __recv__, args = (), daemon = True);

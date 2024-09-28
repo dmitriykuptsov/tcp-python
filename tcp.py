@@ -1901,5 +1901,11 @@ class TCP():
     def abort(self):
         pass
     def status(self):
-        pass
+        response = ""
+        
+        response += "Size of the send queue: " + str(len(self.send_queue)) + "\n"
+        response += "Size of the receive queue: " + str(len(self.receive_queue)) + "\n"
+        response += "Last received sequence: " + str(self.last_recv_sequence) + "\n"
+        response += "State: " + str(self.state) + "\n"
+        return response
     
