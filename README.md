@@ -21,3 +21,8 @@ Prevent Linux kernel from replying to custom TCP handshake
 ```
 $ sudo iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
 ```
+
+Simulate packet drop on loopback interface
+```
+$ sudo tc qdisc add dev lo root netem loss 50%
+```
