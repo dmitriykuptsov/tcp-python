@@ -42,9 +42,9 @@ parser = argparse.ArgumentParser(
                         description='Netcat for sending raw bytes over the network to the remote machine')
 
 parser.add_argument("--src", dest="src", required=True, help="Source address")
-parser.add_argument("--dst", dest="dst", required=True, help="Destination address")
+parser.add_argument("--dst", dest="dst", required=False, help="Destination address")
 parser.add_argument("--source-port", dest="sport", required=True, help="Source port", type=int)
-parser.add_argument("--destination-port", dest="dport", required=True, help="Destination port", type=int)
+parser.add_argument("--destination-port", dest="dport", required=False, help="Destination port", type=int)
 parser.add_argument("-l", required=False, help="Listen mode", action="store_true")
 args = parser.parse_args()
 
@@ -55,6 +55,9 @@ if not args.l:
 
 # Open TCP channel
 tcp.open(args.src, args.dst, args.sport, args.dport, listen=args.l)
+
+if args.l:
+    tcp.listen()
 
 # Receive loop
 def __recv__():
