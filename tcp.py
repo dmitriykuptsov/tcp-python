@@ -177,7 +177,7 @@ class TCP():
                         self.ssthresh = max (self.bytes_in_flight / 2, 2*MSS)
                         self.tcb.cwnd = MSS;
                         tcp_packet = TCPPacket(ipv4packet.get_payload())
-                        tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                        #tcp_packet.set_sequence_number(self.tcb.snd_nxt)
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                         self.send_queue[seq] = (time(), time() + self.rto, ipv4packet)
                         #print("Retransmitting the packet...")
@@ -252,6 +252,33 @@ class TCP():
                         not_acceptable = True
                 
                 if not not_acceptable:
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+                    continue
                     continue
                 
                 # Second check
@@ -265,10 +292,38 @@ class TCP():
                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
                     ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
+                    continue
 
                 # Fifth check
                 if not tcp_packet.get_ack_bit():
@@ -341,7 +396,34 @@ class TCP():
                         #print("W>0 plen>0 but the rcv_nxt <= seq < ")
                         not_acceptable = True
                 if not not_acceptable:
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     continue
+
                 # Second check
 
                 if tcp_packet.get_rst_bit():
@@ -350,12 +432,41 @@ class TCP():
                     #print("Moving to close state TIME WAIT")
                     continue
 
-                # Third check
+                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
+                    continue
                     #print("Moving to close state TIME WAIT 2")
 
                 # Fourth check
@@ -420,6 +531,32 @@ class TCP():
                         not_acceptable = True
                     
                 if not_acceptable:
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     continue
                 
                 # Second check
@@ -433,10 +570,38 @@ class TCP():
                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
-                    #print("Moving to close state LAST ACK 2")
+                    continue
                 
             elif self.state == self.states.CLOSING:
                 # First check
@@ -502,9 +667,38 @@ class TCP():
                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
+                    continue
 
                 # Fifth check
                 if not tcp_packet.get_ack_bit():
@@ -623,9 +817,38 @@ class TCP():
                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
+                    continue
 
                 # Fifth check
                 if not tcp_packet.get_ack_bit():
@@ -674,6 +897,8 @@ class TCP():
                         # Duplicate
                         #print("DUPLICATE.....")
                         continue
+                # Check if ACK for FIN 
+
                 
                 if tcp_packet.get_urg_bit():
                     self.tcb.rcv_up = max(self.tcb.rcv_up, tcp_packet.get_urgent_pointer())
@@ -805,10 +1030,38 @@ class TCP():
                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
-                    #print("Moving to close state FIN WAIT 2 2")
+                    continue
 
                 # Fifth check
                 if not tcp_packet.get_ack_bit():
@@ -1069,13 +1322,41 @@ class TCP():
                     self.state = self.states.CLOSED
                     self.tcb = None
                     
-                # Forth check
+                # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
-                    #print("Moving to close state EST 2")
+                    continue
                 
                 # Fifth check
                 if not tcp_packet.get_ack_bit():
@@ -1208,12 +1489,38 @@ class TCP():
                         #print("W>0 plen>0 but the rcv_nxt <= seq < ")
                         not_acceptable = True
                 if not not_acceptable:
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     continue
                 
                 # Second check
-                #if self.passive:
-                #    self.state = self.states.LISTEN
-                #    continue
+                if self.passive:
+                    self.state = self.states.LISTEN
+                    continue
                 #else:
                 #    self.state = self.states.CLOSED
                 #    self.tcb = None
@@ -1223,20 +1530,77 @@ class TCP():
                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
+                    continue
                 
                 # Fifth check
-                if not tcp_packet.get_ack_bit():
-                    # Drop the packet and return
-                    continue
 
                 if tcp_packet.get_ack_bit():
                     if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number()<= self.tcb.snd_nxt:
                         self.state = self.states.ESTABLISHED
                     else:
-                        pass
+                        # Send reset packet
+                        tcp_packet = packets.TCPPacket()
+                        tcp_packet.set_source_port(self.sport)
+                        tcp_packet.set_destination_port(self.dport)
+                        
+                        # Copy original sequence into the acknowledgement sequence
+                        tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                        tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                        tcp_packet.set_window(self.tcb.rcv_wnd)
+                        tcp_packet.set_ack_bit(1)
+                        tcp_packet.set_rst_bit(1)
+                        tcp_packet.set_data_offset(5)    
+
+                        ipv4packet = packets.IPv4Packet()
+                        ipv4packet.set_source_address(self.src_bytes)
+                        ipv4packet.set_destination_address(self.dst_bytes)
+                        ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                        ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                        tcp_packet.set_checksum(0)
+
+                        pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                                self.dst_bytes, \
+                                                                Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                        
+                        tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                        tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                        ipv4packet.set_payload(tcp_packet.get_buffer())
+                        self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+                        # Clean all queues
+                        self.state = self.states.CLOSED
+                        ##print("Moving to close state CLOSE WAIT 2")
+                        self.tcb = None
                         # Form the RST packet
                         # <SEQ=SEG.ACK><CTL=RST>
                 # Eigth check
@@ -1267,6 +1631,32 @@ class TCP():
                         #print("W>0 plen>0 but the rcv_nxt <= seq < ")
                         not_acceptable = True
                 if not not_acceptable:
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     continue
                 
                 # Second check
@@ -1277,13 +1667,69 @@ class TCP():
                 # Third check
                 if tcp_packet.get_syn_bit():
                     # Send reset packet
+                    tcp_packet = packets.TCPPacket()
+                    tcp_packet.set_source_port(self.sport)
+                    tcp_packet.set_destination_port(self.dport)
+                    
+                    # Copy original sequence into the acknowledgement sequence
+                    tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                    tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                    tcp_packet.set_window(self.tcb.rcv_wnd)
+                    tcp_packet.set_ack_bit(1)
+                    tcp_packet.set_rst_bit(1)
+                    tcp_packet.set_data_offset(5)    
+
+                    ipv4packet = packets.IPv4Packet()
+                    ipv4packet.set_source_address(self.src_bytes)
+                    ipv4packet.set_destination_address(self.dst_bytes)
+                    ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                    ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                    tcp_packet.set_checksum(0)
+
+                    pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                            self.dst_bytes, \
+                                                            Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                    tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                    tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                    ipv4packet.set_payload(tcp_packet.get_buffer())
+                    self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                     # Clean all queues
                     self.state = self.states.CLOSED
+                    ##print("Moving to close state CLOSE WAIT 2")
                     self.tcb = None
+                    continue
 
                 # Fourth check
                 # Check if the packets ACKs FIN packet
 
+                tcp_packet = packets.TCPPacket()
+                tcp_packet.set_source_port(self.sport)
+                tcp_packet.set_destination_port(self.dport)
+                    
+                # Copy original sequence into the acknowledgement sequence
+                tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+                tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+                tcp_packet.set_window(self.tcb.rcv_wnd)
+                tcp_packet.set_ack_bit(1)
+                tcp_packet.set_data_offset(5)    
+
+                ipv4packet = packets.IPv4Packet()
+                ipv4packet.set_source_address(self.src_bytes)
+                ipv4packet.set_destination_address(self.dst_bytes)
+                ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                tcp_packet.set_checksum(0)
+
+                pseudo_header = Misc.make_pseudo_header(self.src_bytes, \
+                                                        self.dst_bytes, \
+                                                        Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                    
+                tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                ipv4packet.set_payload(tcp_packet.get_buffer())
+                self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+                
             
     def __send__(self):
         while True:
