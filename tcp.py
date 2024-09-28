@@ -1849,6 +1849,48 @@ class TCP():
     def __send__(self):
         while True:
             if self.state == self.states.CLOSED:
+                #print("Sending packet...")
+                self.tcb = TransmissionControlBlock()
+                self.tcb.iss = TCPUtils.generate_isn()
+                self.tcb.snd_una = self.tcb.iss
+                self.tcb.snd_nxt = self.tcb.iss + 1
+                #print("Setting TCB ISS")
+                self.state = self.states.SYN_SENT
+                
+                tcp_packet = packets.TCPPacket()
+                tcp_packet.set_source_port(self.sport)
+                tcp_packet.set_destination_port(self.dport)
+                tcp_packet.set_syn_bit(1)
+                tcp_packet.set_sequence_number(self.tcb.snd_una)
+                tcp_packet.set_data_offset(5)
+
+                mss_option = packets.TCPMSSOption()
+                mss_option.set_mss(MSS)
+                mss_option.set_kind(packets.TCP_MSS_OPTION_KIND)
+                
+                end_option = packets.TCPOption()
+                end_option.set_kind(packets.TCP_OPTION_END_OF_OPTION_KIND)
+
+                noop_option = packets.TCPOption()
+                noop_option.set_kind(packets.TCP_NOOP_OPTION_KIND)
+
+                ipv4packet = packets.IPv4Packet()
+                ipv4packet.set_source_address(self.src_bytes)
+                ipv4packet.set_destination_address(self.dst_bytes)
+                ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+                ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+                tcp_packet.set_checksum(0)
+
+                tcp_packet.set_options([mss_option, noop_option, end_option])
+
+                pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))
+                
+                tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+
+                tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+                ipv4packet.set_payload(tcp_packet.get_buffer())
+
+                self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                 continue
             elif self.state == self.states.ESTABLISHED:
                 plen = MSS
@@ -1924,14 +1966,15 @@ class TCP():
             self.state = self.states.LISTEN
         else:
             self.state = self.states.CLOSED
-            #print("Moving to close state open call")
+        #    #print("Moving to close state open call")
         
         # creates a raw socket and binds it to the source address
         
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, packets.TCP_PROTOCOL_NUMBER)
         self.socket.bind((src, 0))
         self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1);
-        
+
+
         self.recv_thread = threading.Thread(target = self.__recv__, args = (), daemon = True);
         self.send_thread = threading.Thread(target = self.__send__, args = (), daemon = True);
         self.maintenance_thread = threading.Thread(target = self.__maintenance__, args = (), daemon = True);
