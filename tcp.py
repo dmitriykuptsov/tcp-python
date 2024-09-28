@@ -1526,6 +1526,7 @@ class TCP():
                         self.tcb = TransmissionControlBlock()
                         self.tcb.rcv_nxt = sequence + 1
                         self.tcb.irs = sequence
+                        self.last_recv_sequence = self.tcb.irs
                         self.tcb.iss = TCPUtils.generate_isn()
                         self.tcb.snd_nxt = self.tcb.iss + 1
                         self.tcb.snd_una = self.tcb.iss
