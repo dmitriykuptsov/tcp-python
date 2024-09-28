@@ -59,6 +59,7 @@ tcp.open(args.src, args.dst, args.sport, args.dport, listen=args.l)
 if args.l:
     tcp.listen()
 
+main_loop_liveness = True
 # Receive loop
 def __recv__():
     while True:
@@ -66,16 +67,18 @@ def __recv__():
         if buf:
             s = "".join(map(chr, list(buf)))
             sys.stdout.write("%s\n> "  % (s.strip()))
-        
 # Send loop
 def __send__():
+    global main_loop_liveness
     while True:
         sys.stdout.write("> ")
         sys.stdout.flush()
         s = sys.stdin.readline()
         data = s.encode("ascii")
         if s.strip() == "exit":
-            exit(0)
+            tcp.close()
+            main_loop_liveness = False
+            continue
         if s.strip() == "status":
             print(tcp.status().strip())
             continue
@@ -87,6 +90,6 @@ send_thread = threading.Thread(target = __send__, args = (), daemon = True);
 recv_thread.start()
 send_thread.start()
 
-while True:
+while main_loop_liveness:
     # Main loop
     sleep(1)
