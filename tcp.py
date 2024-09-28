@@ -1913,6 +1913,8 @@ class TCP():
         if self.tcb:
             response += "Receiver window:" + str(self.tcb.rcv_wnd) + "\n"
             response += "Sender window:" + str(self.tcb.snd_wnd) + "\n"
+            response += "Next sequence to expect in sequence field from the sender:" + str(self.tcb.rcv_nxt) + "\n"
+            response += "Next sequence to expect in acknoledgement field from the sender:" + str(self.tcb.snd_nxt) + "\n"
         response += "State: " + str(self.state) + "\n"
         return response
     
