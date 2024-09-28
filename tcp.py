@@ -1849,7 +1849,7 @@ class TCP():
     def __send__(self):
         while True:
             if self.state == self.states.CLOSED:
-                #print("Sending packet...")
+                print("Opening connection...")
                 self.tcb = TransmissionControlBlock()
                 self.tcb.iss = TCPUtils.generate_isn()
                 self.tcb.snd_una = self.tcb.iss
