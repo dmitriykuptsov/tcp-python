@@ -32,6 +32,8 @@ from config import config
 from utils import Checksum, Misc, TCPUtils
 # Packets 
 import packets
+# Trace back 
+import traceback
 
 MTU = config.get('MTU', 1500);
 MSS = config.get('MSS', 536);
@@ -59,13 +61,20 @@ class TransmissionControlBlock():
         self.rw = 0
         self.sport = 0
         self.dport = 0
-        self.msl_timeout = 0
+        self.u_timeout = time() + 1200
+        self.tw_timeout = time() + 2 * MSL
 
-    def timeout(self, value = None):
+    def time_wait_timeout(self, value = None):
         if value:
-            self.msl_timeout = value
+            self.tw_timeout = value
         else:
-            return self.msl_timeout
+            return self.tw_timeout
+
+    def user_timeout(self, value = None):
+        if value:
+            self.u_timeout = value
+        else:
+            return self.u_timeout
     def snd_una(self, value = None):
         if value:
             self.snd_una = value
@@ -159,8 +168,13 @@ class TCP():
 
     def __maintenance__(self):
         while True:
+            if self.tcb and self.tcb.user_timeout() <= time():
+                self.state = self.states.CLOSED
+                self.tcb = None
+                #print("-----------------TIMEOUT-----------------")
+                continue
             if self.state == self.states.TIME_WAIT:
-                if self.tcb.timeout() >= time():
+                if self.tcb.time_wait_timeout() <= time():
                     #print("Connection was closed due to timeout")
                     self.state = self.states.CLOSED
                     self.tcb = None
@@ -213,12 +227,17 @@ class TCP():
                         else:
                             break
             if self.state != self.states.CLOSED and self.tcb:
-                self.tcb.timeout(time() + 2 * MSL)
+                #print(time())
+                #print(time() + 1200)
+                self.tcb.user_timeout(time() + 1200)
+
+            if self.state != self.states.CLOSED and self.tcb:
+                self.tcb.time_wait_timeout(time() + 2 * MSL)
 
     def __recv__(self):
         while True:
             try:
-                ##print("GOT PACKET")
+                #print("GOT PACKET")
                 buf = bytearray(self.socket.recv(MTU));
                 ipv4packet = IPv4Packet(buf)
                 if ipv4packet.get_destination_address() != self.src_bytes:
@@ -235,7 +254,9 @@ class TCP():
                     if (Checksum.checksum(pseudo_header + tcp_packet.get_buffer()) & 0xFFFF) != (checksum & 0xFFFF):
                         #print("Invalid checksum detected")
                         #continue
-                        pass                    
+                        pass
+                #print("STARTING MAIN LOOP")
+                #print(self.state)
                 if self.state == self.states.CLOSED:
                     continue
                 elif self.state == self.states.CLOSE_WAIT:
@@ -384,7 +405,6 @@ class TCP():
                             # Duplicate
                             #print("DUPLICATE.....")
                             continue
-
                 elif self.state == self.states.TIME_WAIT:
                     # First check
                     not_acceptable = False
@@ -519,7 +539,6 @@ class TCP():
                     """
                     Restart the 2 MSL time-wait timeout.
                     """
-
                 elif self.state == self.states.LAST_ACK:
                     # First check
                     #print("GOT PACKET FROM THE OTHER SIDE")
@@ -618,8 +637,7 @@ class TCP():
                         self.send_queue = {}
                         ##print("Moving to close state CLOSE WAIT 2")
                         self.tcb = None
-                        continue
-                    
+                        continue                  
                 elif self.state == self.states.CLOSING:
                     # First check
                     #print("GOT PACKET FROM THE OTHER SIDE")
@@ -1284,7 +1302,6 @@ class TCP():
                         tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
                         ipv4packet.set_payload(tcp_packet.get_buffer())
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
-
                 elif self.state == self.states.ESTABLISHED:
                     # First check
                     #print("GOT PACKET FROM THE OTHER SIDE")
@@ -1701,7 +1718,6 @@ class TCP():
                     # Eigth check
                     if tcp_packet.get_fin_bit():
                         self.state = self.states.CLOSE_WAIT
-                        
                 elif self.state == self.states.LAST_ACK:
                     # First check
                     not_acceptable = False
@@ -1828,56 +1844,13 @@ class TCP():
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
             except Exception as e:
                 print("Got exception in read loop %s" % str(e))
-                
+                #print(traceback.format_exc())
             
     def __send__(self):
         while True:
             if self.state == self.states.CLOSED:
-                #print("Sending packet...")
-                self.tcb = TransmissionControlBlock()
-                self.tcb.iss = TCPUtils.generate_isn()
-                self.tcb.snd_una = self.tcb.iss
-                self.tcb.snd_nxt = self.tcb.iss + 1
-                #print("Setting TCB ISS")
-                self.state = self.states.SYN_SENT
-                
-                tcp_packet = packets.TCPPacket()
-                tcp_packet.set_source_port(self.sport)
-                tcp_packet.set_destination_port(self.dport)
-                tcp_packet.set_syn_bit(1)
-                tcp_packet.set_sequence_number(self.tcb.snd_una)
-                tcp_packet.set_data_offset(5)
-
-                mss_option = packets.TCPMSSOption()
-                mss_option.set_mss(MSS)
-                mss_option.set_kind(packets.TCP_MSS_OPTION_KIND)
-                
-                end_option = packets.TCPOption()
-                end_option.set_kind(packets.TCP_OPTION_END_OF_OPTION_KIND)
-
-                noop_option = packets.TCPOption()
-                noop_option.set_kind(packets.TCP_NOOP_OPTION_KIND)
-
-                ipv4packet = packets.IPv4Packet()
-                ipv4packet.set_source_address(self.src_bytes)
-                ipv4packet.set_destination_address(self.dst_bytes)
-                ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
-                ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
-                tcp_packet.set_checksum(0)
-
-                tcp_packet.set_options([mss_option, noop_option, end_option])
-
-                pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))
-                
-                tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
-
-                tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
-                ipv4packet.set_payload(tcp_packet.get_buffer())
-
-                self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
-            
+                continue
             elif self.state == self.states.ESTABLISHED:
-                
                 plen = MSS
                 if len(self.data_to_send) < MSS:
                     plen = len(self.data_to_send)
@@ -1991,7 +1964,33 @@ class TCP():
     def close(self):
         # Send FIN packet
         if self.state == self.states.CLOSE_WAIT:
-            self.state = self.states.LAST_ACK
+            self.state = self.states.CLOSING
+            tcp_packet = packets.TCPPacket()
+            
+            tcp_packet.set_source_port(self.sport)
+            tcp_packet.set_destination_port(self.dport)
+
+            # Copy original sequence into the acknowledgement sequence
+            tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+            tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+            tcp_packet.set_fin_bit(1)
+            tcp_packet.set_window(0)
+            tcp_packet.set_data_offset(5)
+
+            ipv4packet = packets.IPv4Packet()
+            ipv4packet.set_source_address(self.src_bytes)
+            ipv4packet.set_destination_address(self.dst_bytes)
+            ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+            ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+            tcp_packet.set_checksum(0)
+
+            pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))                        
+            tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                
+            tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+            ipv4packet.set_payload(tcp_packet.get_buffer())
+
+            self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
             # send FIN packet
             pass
         elif self.state == self.states.SYN_SENT:
@@ -1999,6 +1998,33 @@ class TCP():
             self.tcb = None
         elif self.state == self.states.SYN_RECEIVED:
             self.state = self.states.FIN_WAIT_1
+            
+            tcp_packet = packets.TCPPacket()
+            
+            tcp_packet.set_source_port(self.sport)
+            tcp_packet.set_destination_port(self.dport)
+
+            # Copy original sequence into the acknowledgement sequence
+            tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+            tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+            tcp_packet.set_fin_bit(1)
+            tcp_packet.set_window(0)
+            tcp_packet.set_data_offset(5)
+
+            ipv4packet = packets.IPv4Packet()
+            ipv4packet.set_source_address(self.src_bytes)
+            ipv4packet.set_destination_address(self.dst_bytes)
+            ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+            ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+            tcp_packet.set_checksum(0)
+
+            pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))                        
+            tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                
+            tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+            ipv4packet.set_payload(tcp_packet.get_buffer())
+
+            self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
             # Send FIN packet
         elif self.state == self.states.LISTEN:
             self.state = self.states.CLOSED
@@ -2006,8 +2032,81 @@ class TCP():
         elif self.state == self.states.ESTABLISHED:
             # send FIN packet
             self.state = self.states.FIN_WAIT_1
+
+            tcp_packet = packets.TCPPacket()
+            
+            tcp_packet.set_source_port(self.sport)
+            tcp_packet.set_destination_port(self.dport)
+
+            # Copy original sequence into the acknowledgement sequence
+            tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+            tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+            tcp_packet.set_fin_bit(1)
+            tcp_packet.set_window(0)
+            tcp_packet.set_data_offset(5)
+
+            ipv4packet = packets.IPv4Packet()
+            ipv4packet.set_source_address(self.src_bytes)
+            ipv4packet.set_destination_address(self.dst_bytes)
+            ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+            ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+            tcp_packet.set_checksum(0)
+
+            pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))                        
+            tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                
+            tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+            ipv4packet.set_payload(tcp_packet.get_buffer())
+
+            self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+        elif self.state == self.states.CLOSING or \
+            self.state == self.states.LAST_ACK or \
+            self.state == self.states.TIME_WAIT:
+            self.state = self.states.CLOSED
+            self.tcb = None
     def abort(self):
-        pass
+        if self.state == self.states.SYN_SENT:
+            self.state = self.states.CLOSED
+            self.tcb = None
+        elif self.state == self.states.LISTEN:
+            self.state = self.states.CLOSED
+            self.tcb = None
+        elif self.state == self.states.ESTABLISHED or \
+            self.state == self.states.SYN_RECEIVED or \
+                self.state == self.states.FIN_WAIT_1 or \
+                    self.state == self.states.FIN_WAIT_2:
+            # send FIN packet
+            self.state = self.states.FIN_WAIT_1
+
+            tcp_packet = packets.TCPPacket()
+            
+            tcp_packet.set_source_port(self.sport)
+            tcp_packet.set_destination_port(self.dport)
+
+            # Copy original sequence into the acknowledgement sequence
+            tcp_packet.set_acknowledgment_number(self.tcb.rcv_nxt)
+            tcp_packet.set_sequence_number(self.tcb.snd_nxt)
+            tcp_packet.set_rst_bit(1)
+            tcp_packet.set_window(0)
+            tcp_packet.set_data_offset(5)
+
+            ipv4packet = packets.IPv4Packet()
+            ipv4packet.set_source_address(self.src_bytes)
+            ipv4packet.set_destination_address(self.dst_bytes)
+            ipv4packet.set_protocol(packets.TCP_PROTOCOL_NUMBER)
+            ipv4packet.set_ttl(packets.IP_DEFAULT_TTL)
+            tcp_packet.set_checksum(0)
+
+            pseudo_header = Misc.make_pseudo_header(self.src_bytes, self.dst_bytes, Misc.int_to_bytes(len(tcp_packet.get_buffer())))                        
+            tcp_checksum = Checksum.checksum(pseudo_header + tcp_packet.get_buffer())
+                
+            tcp_packet.set_checksum(tcp_checksum & 0xFFFF)
+            ipv4packet.set_payload(tcp_packet.get_buffer())
+
+            self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
+
+            self.state = self.states.CLOSED
+            self.tcb = None
     def status(self):
         response = ""
         
