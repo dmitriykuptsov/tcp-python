@@ -176,12 +176,12 @@ class TCP():
                     if currenttime > rto:
                         self.ssthresh = max (self.bytes_in_flight / 2, 2*MSS)
                         self.tcb.cwnd = MSS;
-                        tcp_packet = TCPPacket(ipv4packet.get_payload())
+                        #tcp_packet = TCPPacket(ipv4packet.get_payload())
                         #tcp_packet.set_sequence_number(self.tcb.snd_nxt)
                         self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
                         self.send_queue[seq] = (time(), time() + self.rto, ipv4packet)
                         #print("Retransmitting the packet...")
-                        tcp_packet = TCPPacket(ipv4packet.get_payload())
+                        #tcp_packet = TCPPacket(ipv4packet.get_payload())
                         #print("SEND SEQUENCE...... %s %s" % (tcp_packet.get_sequence_number(), seq))
                 seqs = list(self.receive_queue.keys())
                 seqs.sort()
@@ -212,7 +212,7 @@ class TCP():
                             continue
                         else:
                             break
-            elif self.state != self.states.CLOSED and self.tcb:
+            if self.state != self.states.CLOSED and self.tcb:
                 self.tcb.timeout(time() + 2 * MSL)
 
     def __recv__(self):
@@ -709,6 +709,7 @@ class TCP():
                 if tcp_packet.get_ack_bit():
                     #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                     if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number() <= self.tcb.snd_nxt:
+                        max_sequence_acked = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
                         self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
                         #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
                         # Remove the packets that have sequnce <= self.tcb.snd_una
@@ -719,7 +720,7 @@ class TCP():
                         self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                         
                         old_tcp_packet = TCPPacket(packet.get_payload())
-                        self.bytes_in_flight -= len(old_tcp_packet.get_data())
+                        self.bytes_in_flight -= max_sequence_acked
 
                         seqs = list(self.send_queue.keys())
                         for seq in seqs:
@@ -1906,6 +1907,12 @@ class TCP():
         response += "Size of the send queue: " + str(len(self.send_queue)) + "\n"
         response += "Size of the receive queue: " + str(len(self.receive_queue)) + "\n"
         response += "Last received sequence: " + str(self.last_recv_sequence) + "\n"
+        response += "Bytes in flight: " + str(self.bytes_in_flight) + "\n"
+        response += "RTT:" + str(self.srtt) + "\n"
+        response += "RTO:" + str(self.rto) + "\n"
+        if self.tcb:
+            response += "Receiver window:" + str(self.tcb.rcv_wnd) + "\n"
+            response += "Sender window:" + str(self.tcb.snd_wnd) + "\n"
         response += "State: " + str(self.state) + "\n"
         return response
     
