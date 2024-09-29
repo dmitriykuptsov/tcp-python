@@ -367,7 +367,7 @@ class TCP():
                     if tcp_packet.get_ack_bit():
                         #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                         if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number() <= self.tcb.snd_nxt:
-                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
+                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una - 1
                             self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
                             #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
                             # Remove the packets that have sequnce <= self.tcb.snd_una
@@ -747,7 +747,7 @@ class TCP():
                     if tcp_packet.get_ack_bit():
                         #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                         if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number() <= self.tcb.snd_nxt:
-                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
+                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una - 1
                             
                             self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
                             #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
@@ -1411,7 +1411,7 @@ class TCP():
                     if tcp_packet.get_ack_bit():
                         #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                         if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number() <= self.tcb.snd_nxt:
-                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
+                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una - 1
                             self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
                             #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
                             # Remove the packets that have sequnce <= self.tcb.snd_una
