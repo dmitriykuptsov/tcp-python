@@ -367,6 +367,7 @@ class TCP():
                     if tcp_packet.get_ack_bit():
                         #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                         if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number() <= self.tcb.snd_nxt:
+                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
                             self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
                             #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
                             # Remove the packets that have sequnce <= self.tcb.snd_una
@@ -377,7 +378,7 @@ class TCP():
                             self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                             
                             old_tcp_packet = TCPPacket(packet.get_payload())
-                            self.bytes_in_flight -= len(old_tcp_packet.get_data())
+                            self.bytes_in_flight -= acked_bytes #len(old_tcp_packet.get_data())
 
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
@@ -746,7 +747,8 @@ class TCP():
                     if tcp_packet.get_ack_bit():
                         #print("GOT ACK... %s" % tcp_packet.get_acknowledgment_number())
                         if self.tcb.snd_una < tcp_packet.get_acknowledgment_number() and tcp_packet.get_acknowledgment_number() <= self.tcb.snd_nxt:
-                            max_sequence_acked = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
+                            acked_bytes = tcp_packet.get_acknowledgment_number() - self.tcb.snd_una
+                            
                             self.tcb.snd_una = tcp_packet.get_acknowledgment_number()
                             #print("SETTING UNA ---------------- %s" % self.tcb.snd_una)
                             # Remove the packets that have sequnce <= self.tcb.snd_una
@@ -757,7 +759,7 @@ class TCP():
                             self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                             
                             old_tcp_packet = TCPPacket(packet.get_payload())
-                            self.bytes_in_flight -= max_sequence_acked
+                            self.bytes_in_flight -= acked_bytes
 
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
@@ -1422,7 +1424,7 @@ class TCP():
                             old_tcp_packet = TCPPacket(packet.get_payload())
                             #self.bytes_in_flight -= len(old_tcp_packet.get_data())
                             self.bytes_in_flight -= acked_bytes
-                            
+
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
                                 if seq <= self.tcb.snd_una:
