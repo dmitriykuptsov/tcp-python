@@ -207,6 +207,7 @@ class TCP():
                     tcp_packet = TCPPacket(ipv4packet.get_payload())
                     self.received_data += tcp_packet.get_data()
                     self.last_recv_sequence += len(tcp_packet.get_data())
+                    self.bytes_in_flight -= len(tcp_packet.get_data())
                     del self.receive_queue[seqs[0]]
                     #print("Removing the packet from the receive queue")
                 else:
@@ -221,6 +222,7 @@ class TCP():
                         if seqs[i + 1] - seqs[i] - len(tcp_packet.get_data()) == 0:
                             self.received_data += tcp_packet.get_data()
                             self.last_recv_sequence += len(tcp_packet.get_data())
+                            self.bytes_in_flight -= len(tcp_packet.get_data())
                             del self.receive_queue[seqs[i]]
                             #print("Removing the packet from the receive queue 2")
                             continue
@@ -378,7 +380,7 @@ class TCP():
                             self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                             
                             old_tcp_packet = TCPPacket(packet.get_payload())
-                            self.bytes_in_flight -= acked_bytes #len(old_tcp_packet.get_data())
+                            #self.bytes_in_flight -= acked_bytes #len(old_tcp_packet.get_data())
 
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
@@ -759,7 +761,7 @@ class TCP():
                             self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                             
                             old_tcp_packet = TCPPacket(packet.get_payload())
-                            self.bytes_in_flight -= acked_bytes
+                            #self.bytes_in_flight -= acked_bytes
 
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
@@ -911,7 +913,7 @@ class TCP():
                             self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                             
                             old_tcp_packet = TCPPacket(packet.get_payload())
-                            self.bytes_in_flight -= len(old_tcp_packet.get_data())
+                            #self.bytes_in_flight -= len(old_tcp_packet.get_data())
 
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
@@ -1126,7 +1128,7 @@ class TCP():
                             self.rto = min(UBOUND, max(LBOUND,(BETA * self.srtt)))
                             
                             old_tcp_packet = TCPPacket(packet.get_payload())
-                            self.bytes_in_flight -= len(old_tcp_packet.get_data())
+                            #self.bytes_in_flight -= len(old_tcp_packet.get_data())
 
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
@@ -1423,7 +1425,7 @@ class TCP():
                             
                             old_tcp_packet = TCPPacket(packet.get_payload())
                             #self.bytes_in_flight -= len(old_tcp_packet.get_data())
-                            self.bytes_in_flight -= acked_bytes
+                            #self.bytes_in_flight -= acked_bytes
 
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
