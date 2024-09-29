@@ -207,7 +207,9 @@ class TCP():
                     tcp_packet = TCPPacket(ipv4packet.get_payload())
                     self.received_data += tcp_packet.get_data()
                     self.last_recv_sequence += len(tcp_packet.get_data())
-                    self.bytes_in_flight -= len(tcp_packet.get_data())
+                    #print(self.bytes_in_flight)
+                    #print(len(tcp_packet.get_data()))
+                    #self.bytes_in_flight -= len(tcp_packet.get_data())
                     del self.receive_queue[seqs[0]]
                     #print("Removing the packet from the receive queue")
                 else:
@@ -222,7 +224,9 @@ class TCP():
                         if seqs[i + 1] - seqs[i] - len(tcp_packet.get_data()) == 0:
                             self.received_data += tcp_packet.get_data()
                             self.last_recv_sequence += len(tcp_packet.get_data())
-                            self.bytes_in_flight -= len(tcp_packet.get_data())
+                            #print(self.bytes_in_flight)
+                            #print(len(tcp_packet.get_data()))
+                            #self.bytes_in_flight -= len(tcp_packet.get_data())
                             del self.receive_queue[seqs[i]]
                             #print("Removing the packet from the receive queue 2")
                             continue
@@ -385,6 +389,7 @@ class TCP():
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
                                 if seq <= self.tcb.snd_una:
+                                    
                                     del self.send_queue[seq]
                             
                             #print("REMOVING PACKETS FROM THE SEND QUEUE")
@@ -1430,6 +1435,7 @@ class TCP():
                             seqs = list(self.send_queue.keys())
                             for seq in seqs:
                                 if seq <= self.tcb.snd_una:
+                                    self.bytes_in_flight -= len(old_tcp_packet.get_data())
                                     del self.send_queue[seq]
                             
                             #print("REMOVING PACKETS FROM THE SEND QUEUE")
