@@ -264,8 +264,8 @@ class TCP():
                         #continue
                         pass
                 else:
-                    #if tcp_packet.get_destination_port() != self.sport:
-                    continue
+                    if tcp_packet.get_destination_port() != self.sport:
+                        continue
                 #print("STARTING MAIN LOOP")
                 #print(self.state)
                 if self.state == self.states.CLOSED:
