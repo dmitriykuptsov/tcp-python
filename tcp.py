@@ -397,7 +397,7 @@ class TCP():
                             if self.tcb.cwnd < self.ssthresh:
                                 self.tcb.cwnd += MSS
                             else:
-                                self.tcb.cwnd += MSS * MSS / self.tcb.snd_wnd
+                                self.tcb.cwnd += MSS * MSS / self.tcb.cwnd
                                 
                             if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
                                 (self.tcb.snd_wl1 == tcp_packet.get_sequence_number() and \
@@ -778,7 +778,7 @@ class TCP():
                             if self.tcb.cwnd < self.ssthresh:
                                 self.tcb.cwnd += MSS
                             else:
-                                self.tcb.cwnd += MSS * MSS / self.tcb.snd_wnd
+                                self.tcb.cwnd += MSS * MSS / self.tcb.cwnd
                                 
                             if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
                                 (self.tcb.snd_wl1 == tcp_packet.get_sequence_number() and \
@@ -930,7 +930,7 @@ class TCP():
                             if self.tcb.cwnd < self.ssthresh:
                                 self.tcb.cwnd += MSS
                             else:
-                                self.tcb.cwnd += MSS * MSS / self.tcb.snd_wnd
+                                self.tcb.cwnd += MSS * MSS / self.tcb.cwnd
                                 
                             if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
                                 (self.tcb.snd_wl1 == tcp_packet.get_sequence_number() and \
@@ -1145,7 +1145,7 @@ class TCP():
                             if self.tcb.cwnd < self.ssthresh:
                                 self.tcb.cwnd += MSS
                             else:
-                                self.tcb.cwnd += MSS * MSS / self.tcb.snd_wnd
+                                self.tcb.cwnd += MSS * MSS / self.tcb.cwnd
                                 
                             if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
                                 (self.tcb.snd_wl1 == tcp_packet.get_sequence_number() and \
@@ -1443,7 +1443,7 @@ class TCP():
                             if self.tcb.cwnd < self.ssthresh:
                                 self.tcb.cwnd += MSS
                             else:
-                                self.tcb.cwnd += MSS * MSS / self.tcb.snd_wnd
+                                self.tcb.cwnd += MSS * MSS / self.tcb.cwnd
                                 
                             if self.tcb.snd_wl1 < tcp_packet.get_sequence_number() or \
                                 (self.tcb.snd_wl1 == tcp_packet.get_sequence_number() and \
