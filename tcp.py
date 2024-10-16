@@ -19,6 +19,8 @@ from packets import TCPPacket, IPv4Packet
 ALPHA = 0.8
 BETA = 1.3
 
+import traceback
+
 # Threading
 import threading
 # Sockets
@@ -261,7 +263,10 @@ class TCP():
                         #print("Invalid checksum detected")
                         #continue
                         pass
-                #print("STARTING MAIN LOOP")
+                else:
+                    if tcp_packet.get_destination_port() != self.sport:
+                        continue
+                print("STARTING MAIN LOOP")
                 #print(self.state)
                 if self.state == self.states.CLOSED:
                     continue
@@ -1855,6 +1860,7 @@ class TCP():
                     ipv4packet.set_payload(tcp_packet.get_buffer())
                     self.socket.sendto(ipv4packet.get_buffer(), (self.dst, 0))
             except Exception as e:
+                traceback.print_exc()
                 print("Got exception in read loop %s" % str(e))
                 #print(traceback.format_exc())
             
